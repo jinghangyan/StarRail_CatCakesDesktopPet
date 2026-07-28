@@ -73,17 +73,6 @@ flutter run          # 调试运行
 flutter build apk    # 打包 Android APK
 ```
 
-目录结构：
-
-```
-├── desktop/            # Electron 桌面端
-│   ├── main.js         # 主进程：窗口、托盘、菜单、配置
-│   └── renderer/       # 界面：猫猫糕动画、图鉴、台词编辑器、叫声设置等
-│       ├── cakes/      # 27 只猫猫糕立绘（透明背景 WebP）
-│       └── meows/      # 7 个预设叫声
-├── mobile/             # Flutter 手机端（联机遥控器）
-└── supabase/schema.sql # 联机后端建表脚本
-```
 
 ## ❤️ 致谢
 
