@@ -26,6 +26,7 @@ flutter:
   assets:
     - assets/cakes/
     - assets/meows/
+    - assets/pet3d/
     - assets/schema.sql
   fonts:
     - family: AppFont

@@ -379,7 +379,9 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
     const key = String(n).padStart(2, '0');
     if (!skinTexCache.has(key)) {
       // <img> 加载走相对路径即可（file:// 同目录图片不受限）
-      skinTexCache.set(key, texLoader.loadAsync(`models/skin${key}.png`).then((tex) => {
+      // 扩展名可注入：桌面端用原 PNG，手机端包体积敏感用 webp q95（PET3D_SKIN_EXT，见 mobile/assets/pet3d/）
+      const ext = window.PET3D_SKIN_EXT || 'png';
+      skinTexCache.set(key, texLoader.loadAsync(`models/skin${key}.${ext}`).then((tex) => {
         tex.flipY = false; // GLTF UV 规范
         // 全 gamma 管线：贴图不做 sRGB 解码，shader 里直接乘算原值输出，
         // 和 Unity gamma 空间语义一致（线性空间乘暗部会发闷、双重转换会洗白）
