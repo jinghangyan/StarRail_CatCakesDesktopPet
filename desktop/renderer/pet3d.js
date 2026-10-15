@@ -764,10 +764,20 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
   // 曾经的双向单位校准（unitK/boundsUnitM）已拆除：同学的 Windows（150% 缩放）实测
   // getBounds 会混入 DWM 隐形边框且随焦点漂移，基于它的校准会把垃圾放大成失控。
   // 现在主进程全走内容坐标系（getContentBounds/setContentSize），渲染进程零状态。
+  // ack：主进程实际落地的内容尺寸。150% 缩放下请求 625 只能落 626/628（物理像素取整），
+  // 若只认 innerWidth/Height 作守卫，目标永远差 2~3px → 每帧重发 shape 风暴；
+  // 采纳 ack 作为「已收敛」判据后风暴终止（主进程那边尺寸不变也会幂等短路）
+  let ackW = 0, ackH = 0;
+  function shapeSettled(w, h) {
+    if (Math.abs(w - window.innerWidth) <= 2 && Math.abs(h - window.innerHeight) <= 2) return true;
+    return ackW > 0 && Math.abs(w - ackW) <= 2 && Math.abs(h - ackH) <= 2;
+  }
   function sendShape(w, h) {
     const req = { w: Math.round(w), h: Math.round(h) };
     window.api.debugLog(`[sendShape] req=${JSON.stringify(req)} inner=${window.innerWidth}x${window.innerHeight}`);
-    window.api.setShape(req);
+    window.api.setShape(req).then((fin) => {
+      if (fin && isFinite(fin.width + fin.height)) { ackW = fin.width; ackH = fin.height; }
+    }).catch(() => { /* 窗口已销毁等 */ });
   }
 
   // 窗口尺寸 = 包络宽高比 × petSize 基准；底边中心锚定（模型落脚点不动）；
@@ -777,7 +787,7 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
     const envW = envBox.x1 - envBox.x0, envH = envBox.y1 - envBox.y0;
     const w = Math.round(petSize);
     const h = Math.round(petSize * envH / envW);
-    if (Math.abs(w - window.innerWidth) > 2 || Math.abs(h - window.innerHeight) > 2) {
+    if (!shapeSettled(w, h)) {
       // win:shape 语义：只要目标内容尺寸，位置主进程按底边中心锚定（幂等，重复发不漂移）
       console.log(`[pet3d:layout] ${w}x${h}`);
       sendShape(w, h);
@@ -1171,7 +1181,7 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
     const r = appEl.getBoundingClientRect();
     // 只发目标内容尺寸；底边中心锚定在主进程统一处理（2D/3D 同一锚点，互切落脚点不动）
     const w = Math.ceil(r.width), h = Math.ceil(r.height);
-    if (Math.abs(w - window.innerWidth) <= 2 && Math.abs(h - window.innerHeight) <= 2) return; // 已是目标尺寸（幂等守卫）
+    if (shapeSettled(w, h)) return; // 已是目标尺寸（幂等守卫，含主进程 ack 落地尺寸）
     sendShape(w, h);
   }
 

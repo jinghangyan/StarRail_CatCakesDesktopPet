@@ -383,6 +383,11 @@ ipcMain.handle('win:shape', (_e, r) => {
   const w = Math.min(900, Math.max(60, Math.round(r.w)));
   const h = Math.min(900, Math.max(60, Math.round(r.h)));
   const cb = petWin.getContentBounds();
+  // 幂等收敛：目标≈当前内容尺寸就完全不动（连位置也不碰）。
+  // 150% 缩放下 625 DIP 物理取整只能落 626/628，没有这道闸渲染进程会每帧重发 shape
+  // （守卫永远不过），每次重锚定又读到异步 resize 的半落地值 → 位置 +2/帧蠕变
+  // （托柄缩放后随机位移）+ 和 drag-move 在屏幕边缘互钳（抖动拉不动）
+  if (Math.abs(cb.width - w) <= 2 && Math.abs(cb.height - h) <= 2) return cb;
   const anchorCX = cb.x + cb.width / 2;  // 内容底边中心（猫的落脚点）
   const anchorBY = cb.y + cb.height;
   petWin.setContentSize(w, h);
@@ -446,27 +451,34 @@ ipcMain.on('cake:selected', (_e, id) => {
 // 主进程自己跟踪光标位移（screen.getCursorScreenPoint，屏幕坐标在主进程内闭环），
 // 不用渲染进程上报的 screenX 增量——Windows 显示缩放 >100% / 多屏混 DPI 时两边
 // 单位可能不一致，曾表现为越拖越大、松手瞬移到右下角（错误单位被 workArea clamp 拍到角落）
-let dragOrigin = null; // { cx, cy, wx, wy }
+let dragOrigin = null; // { cx, cy, cbx, cby, cw, ch, fdx, fdy }
 let dragLogN = 0;      // drag-move 节流日志计数
 ipcMain.on('win:drag-begin', () => {
   if (!petWin || petWin.isDestroyed()) return;
   const { screen } = require('electron');
   const c = screen.getCursorScreenPoint();
   const [wx, wy] = petWin.getPosition();
-  dragOrigin = { cx: c.x, cy: c.y, wx, wy };
-  dlog(`[drag-begin] cursor=${c.x},${c.y} winPos=${wx},${wy}`);
+  const cb = petWin.getContentBounds();
+  // 记内容区坐标 + 外框偏移（拖动全程用内容坐标系，和 win:shape 同源）
+  dragOrigin = { cx: c.x, cy: c.y, cbx: cb.x, cby: cb.y, cw: cb.width, ch: cb.height,
+    fdx: cb.x - wx, fdy: cb.y - wy };
+  dlog(`[drag-begin] cursor=${c.x},${c.y} winPos=${wx},${wy} content=${cb.x},${cb.y} ${cb.width}x${cb.height}`);
 });
 ipcMain.on('win:drag-move', () => {
   if (!petWin || petWin.isDestroyed() || !dragOrigin) return;
   const { screen } = require('electron');
   const c = screen.getCursorScreenPoint();
-  const [w, h] = petWin.getSize();
-  // 把窗口位置夹在所在屏幕的 workArea 内（至少露 40px），防止拖出屏幕找不回
-  const area = screen.getDisplayMatching({ x: dragOrigin.wx, y: dragOrigin.wy, width: w, height: h }).workArea;
-  const nx = Math.min(Math.max(dragOrigin.wx + (c.x - dragOrigin.cx), area.x - w + 40), area.x + area.width - 40);
-  const ny = Math.min(Math.max(dragOrigin.wy + (c.y - dragOrigin.cy), area.y), area.y + area.height - 40);
-  petWin.setPosition(nx, ny);
-  if (++dragLogN % 15 === 1) dlog(`[drag-move] cursor=${c.x},${c.y} -> ${nx},${ny} size=${w}x${h}`);
+  // 与 win:shape 同一套钳制：内容区完整收进 workArea（拖到边缘精确停靠，不再留 40px 悬边）。
+  // 原来这里按外框尺寸留 40px 悬边、win:shape 按内容区全收进，两套钳制在屏幕边缘互相打架
+  //（150% 缩放 shape 风暴期间表现为边缘抖动/停不下来/随机位移）
+  const area = screen.getDisplayMatching(
+    { x: dragOrigin.cbx, y: dragOrigin.cby, width: dragOrigin.cw, height: dragOrigin.ch }).workArea;
+  const ncx = Math.min(Math.max(dragOrigin.cbx + (c.x - dragOrigin.cx), area.x),
+    area.x + area.width - dragOrigin.cw);
+  const ncy = Math.min(Math.max(dragOrigin.cby + (c.y - dragOrigin.cy), area.y),
+    area.y + area.height - dragOrigin.ch);
+  petWin.setPosition(Math.round(ncx - dragOrigin.fdx), Math.round(ncy - dragOrigin.fdy));
+  if (++dragLogN % 15 === 1) dlog(`[drag-move] cursor=${c.x},${c.y} -> content=${ncx},${ncy} size=${dragOrigin.cw}x${dragOrigin.ch}`);
 });
 ipcMain.on('win:drag-end', () => { dragOrigin = null; });
 

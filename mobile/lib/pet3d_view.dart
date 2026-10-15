@@ -65,7 +65,7 @@ class Pet3dViewState extends State<Pet3dView> {
               (m['viewPitch'] as num?)?.toDouble() ?? 0);
         } catch (_) {}
       })
-      ..setNavigationController(NavigationController(
+      ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) {
           _loaded = true;
           // 页面就绪后注入：当前猫（名称/台词）+ 持久化的视角
