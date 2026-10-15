@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../custom.dart';
 import '../data.dart';
+import '../pet3d_view.dart';
 import '../pet_events.dart';
 import '../widget_sync.dart';
 import 'edit_names_page.dart';
@@ -27,6 +28,11 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
   Offset _pos = const Offset(80, 200);
   double _scale = 1.0;
   int _meow = 1; // 0 = 自定义
+
+  // 3D 渲染（WebView 内嵌 pet3d.js，官方模型）；false 时走 2D 图片兜底
+  bool _render3d = true;
+  final _pet3dKey = GlobalKey<Pet3dViewState>();
+  double _viewYaw = 0, _viewPitch = 0;
 
   double get _size => 170 * _scale;
 
@@ -76,9 +82,21 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
       _meow = p.getInt('meow') ?? 1;
       _scale = p.getDouble('cakeScale') ?? 1.0;
       _pos = Offset(p.getDouble('posX') ?? 80, p.getDouble('posY') ?? 200);
+      _render3d = (p.getString('renderMode') ?? '3d') == '3d';
+      _viewYaw = p.getDouble('viewYaw') ?? 0;
+      _viewPitch = p.getDouble('viewPitch') ?? 0;
     });
     _preloadMeow();
     syncWidget(_cakeId); // 同步给桌面小组件（含名称/台词的最新自定义）
+  }
+
+  // 3D webview 里转动视角后持久化（glue 层 setConfig → cfg channel → 这里）
+  Future<void> _saveView(double yaw, double pitch) async {
+    _viewYaw = yaw;
+    _viewPitch = pitch;
+    final p = await SharedPreferences.getInstance();
+    p.setDouble('viewYaw', yaw);
+    p.setDouble('viewPitch', pitch);
   }
 
   Future<void> _save() async {
@@ -107,6 +125,7 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
   _ActionSpec? _currentSpec;
 
   void _playAction(String name, {bool glow = true, bool sound = true, bool speak = true}) {
+    if (_render3d) return; // 3D 模式动作由 webview 内 pet3d 全权负责（点按/待机/联机都在 glue 层）
     final spec = _actionSpecs[name]!;
     _actCtrl.stop();
     _actCtrl.duration = spec.duration;
@@ -139,6 +158,10 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
     final e = petEventBus.value;
     if (e == null || !mounted) return;
     petEventBus.value = null; // 消费掉，防止重开页面重放
+    if (_render3d) {
+      _pet3dKey.currentState?.petEvent({'who': e.who, 'kind': e.kind, 'content': e.content});
+      return;
+    }
     _playAction(_pickClickAction(), glow: true, sound: true, speak: false);
     _sayText(e.kind == 'blink' ? '✨ ${e.who} 戳了戳你' : '${e.who}: ${e.content}');
   }
@@ -221,10 +244,24 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
         current: _cakeId,
         meow: _meow,
         scale: _scale,
+        render3d: _render3d,
+        onToggle3d: (v) async {
+          setState(() => _render3d = v);
+          final p = await SharedPreferences.getInstance();
+          await p.setString('renderMode', v ? '3d' : '2d');
+        },
+        onNamesEdited: () {
+          if (_render3d) {
+            _pet3dKey.currentState?.setCake(_cakeId, Custom.nameOf(_cakeId), Custom.phrasesOf(_cakeId));
+          }
+        },
         onPick: (id) {
           setState(() => _cakeId = id);
           _save();
           syncWidget(id); // 小组件立即跟着换猫
+          if (_render3d) {
+            _pet3dKey.currentState?.setCake(id, Custom.nameOf(id), Custom.phrasesOf(id));
+          }
         },
         onMeow: (n) {
           setState(() => _meow = n);
@@ -244,6 +281,37 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // 3D 模式：WebView 铺满（pet3d.js 官方模型实时渲染；点按/拖动旋转/台词/叫声都在里面）
+    if (_render3d) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: Pet3dView(
+              key: _pet3dKey,
+              cakeId: _cakeId,
+              cakeName: Custom.nameOf(_cakeId),
+              phrases: Custom.phrasesOf(_cakeId),
+              viewYaw: _viewYaw,
+              viewPitch: _viewPitch,
+              onMeow: _playMeow,
+              onViewChanged: _saveView,
+            ),
+          ),
+          // 右上角：换猫/叫声/大小
+          Positioned(
+            right: 8,
+            top: 8,
+            child: SafeArea(
+              child: IconButton.filledTonal(
+                icon: const Text('🐱', style: TextStyle(fontSize: 20)),
+                tooltip: '选择猫猫糕 / 叫声 / 大小',
+                onPressed: _openPicker,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final size = _size;
     return LayoutBuilder(builder: (ctx, constraints) {
       final pos = Offset(
@@ -477,17 +545,23 @@ class _PickerSheet extends StatefulWidget {
   final String current;
   final int meow;
   final double scale;
+  final bool render3d;
   final ValueChanged<String> onPick;
   final ValueChanged<int> onMeow;
   final ValueChanged<double> onScale;
+  final ValueChanged<bool> onToggle3d;
+  final VoidCallback onNamesEdited;
 
   const _PickerSheet({
     required this.current,
     required this.meow,
     required this.scale,
+    required this.render3d,
     required this.onPick,
     required this.onMeow,
     required this.onScale,
+    required this.onToggle3d,
+    required this.onNamesEdited,
   });
 
   @override
@@ -499,6 +573,7 @@ class _PickerSheetState extends State<_PickerSheet> {
   // 弹层内部自己维护选中状态：底部弹层是独立路由，父组件 setState 不会重建它
   late int _meowSel = widget.meow;
   late double _scaleSel = widget.scale;
+  late bool _render3d = widget.render3d;
   bool _dnd = false;
 
   @override
@@ -544,6 +619,18 @@ class _PickerSheetState extends State<_PickerSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 3D 渲染开关（官方模型实时渲染；2D 更省电、支持拖动换位和缩放）
+          SwitchListTile(
+            dense: true,
+            title: const Text('3D 渲染', style: TextStyle(fontSize: 14)),
+            subtitle: const Text('官方模型实时渲染，拖动旋转视角；关掉用 2D 图片，更省电',
+                style: TextStyle(fontSize: 11)),
+            value: _render3d,
+            onChanged: (v) {
+              setState(() => _render3d = v);
+              widget.onToggle3d(v);
+            },
+          ),
           // 免打扰
           SwitchListTile(
             dense: true,
@@ -557,7 +644,8 @@ class _PickerSheetState extends State<_PickerSheet> {
               await p.setBool('dnd', v);
             },
           ),
-          // 大小调节
+          // 大小调节（仅 2D 模式；3D 猫糕大小由渲染器取景自适应）
+          if (!_render3d)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -627,7 +715,7 @@ class _PickerSheetState extends State<_PickerSheet> {
                   Navigator.pop(context);
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => EditNamesPage(initialCake: widget.current),
-                  ));
+                  )).then((_) => widget.onNamesEdited()); // 改完名称台词回来刷新 3D 台词
                 },
               ),
             ),

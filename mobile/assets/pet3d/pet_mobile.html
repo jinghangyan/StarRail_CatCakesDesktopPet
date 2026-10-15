@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      background: transparent;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none; /* 禁 webview 滚动/缩放，手势全部自己处理 */
+    }
+    /* 3D 模式：canvas 由 pet3d 铺满窗口；DOM 骨架仅为 pet3d 的引用而存在 */
+    #app { position: fixed; inset: 0; }
+    #stage { position: fixed; inset: 0; }
+    #cake { display: none; }       /* 2D 兜底图：移动端 3D 页不用，pet3d 需要该元素存在 */
+    #edgeGlow { display: none; }   /* 2D 轮廓光：同上 */
+    /* 地面投影：pet3d 每帧 JS 投影驱动（仅留样式） */
+    #shadow {
+      position: absolute;
+      left: 50%; bottom: 4px;
+      width: 120px; height: 20px;
+      margin-left: -60px;
+      background: rgba(0, 0, 0, .22);
+      border-radius: 50%;
+      filter: blur(5px);
+      pointer-events: none;
+    }
+    /* 台词气泡（样式与桌面端一致；位置由 pet3d 每帧投影放置） */
+    #bubble {
+      position: fixed;
+      left: 50%; top: 6px;
+      transform: translateX(-50%);
+      max-width: 70%;
+      padding: 8px 12px;
+      background: #fff;
+      color: #333;
+      border-radius: 12px;
+      font: 13px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+      word-break: break-all;
+      z-index: 10;
+    }
+    #bubble.show { opacity: 1; }
+    #bubble::after {
+      content: '';
+      position: absolute;
+      left: 50%; bottom: -6px;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #fff;
+      border-bottom: none;
+    }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <div id="shadow"></div>
+      <div id="edgeGlow"></div>
+      <img id="cake" draggable="false" />
+    </div>
+    <div id="bubble"></div>
+  </div>
+
+  <!-- 皮肤用 webp（包体积 39.8MB→6.5MB）；桌面端不注入此变量仍用 PNG -->
+  <script>window.PET3D_SKIN_EXT = 'webp';</script>
+  <!-- 排障：JS 错误直接画到页面上（webview 里看不了 console） -->
+  <script>
+    window.addEventListener('error', (e) => {
+      const d = document.createElement('div');
+      d.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99;background:#c00;color:#fff;font:11px/1.4 monospace;padding:6px;max-width:96%;white-space:pre-wrap;border-radius:6px';
+      d.textContent = '[err] ' + e.message + ' @ ' + (e.filename || '').split('/').pop() + ':' + e.lineno;
+      document.body.appendChild(d);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const d = document.createElement('div');
+      d.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:99;background:#c60;color:#fff;font:11px/1.4 monospace;padding:6px;max-width:96%;white-space:pre-wrap;border-radius:6px';
+      d.textContent = '[reject] ' + String(e.reason).slice(0, 300);
+      document.body.appendChild(d);
+    });
+  </script>
+  <!-- glue 是经典脚本，先于 deferred 的 pet3d.js module 执行：垫片必须先就位 -->
+  <script src="pet_mobile_glue.js"></script>
+  <script type="module" src="pet3d.js"></script>
+</body>
+</html>
