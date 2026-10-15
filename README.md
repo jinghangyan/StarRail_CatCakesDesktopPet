@@ -1,11 +1,12 @@
 # 桌宠猫猫糕 🐱
 
-> StarRail CatCakes Desktop Pet —— 27 只猫猫糕住在你的桌面上
+> StarRail CatCakes Desktop Pet —— 29 只猫猫糕住在你的桌面上
 
-一只（其实是 27 只）住在电脑桌面上的猫猫糕，支持 **Windows** 和 **macOS**。可以点它、rua 它、看它伸懒腰，还能和朋友联机互戳——对方手机上点一下，你桌上的猫猫糕就会发光、喵一声。（需要服务器，作者也还没实现）
+一只（其实是 29 只）住在电脑桌面上的猫猫糕，**官方模型 3D 实时渲染**（卡通描边 + 官方动作），支持 **Windows** 和 **macOS**。可以点它、rua 它、看它伸懒腰，还能和朋友联机互戳——对方手机上点一下，你桌上的猫猫糕就会发光、喵一声、说句话。
 
-![平台](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)
-![版本](https://img.shields.io/badge/version-1.0.0-ff8fa3)
+![平台](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS(PWA)-blue)
+![桌面端](https://img.shields.io/badge/桌面端-v3.0.0-ff8fa3)
+![手机端](https://img.shields.io/badge/手机端-v2.1.0-8fb3ff)
 
 ## ✨ 功能一览
 
@@ -33,8 +34,10 @@
 
 | 平台 | 文件 | 说明 |
 |---|---|---|
-| macOS (Apple Silicon) | `桌宠猫猫糕-x.x.x-arm64.dmg` | 拖进「应用程序」 |
+| macOS (Apple Silicon) | `桌宠猫猫糕-x.x.x-arm64.dmg` | 拖进「应用程序」；提示「已损坏」就双击 dmg 里的「修复安装.command」 |
 | Windows (x64) | `桌宠猫猫糕 Setup x.x.x.exe` | 安装程序，带标准卸载 |
+| Android | `桌宠猫猫糕-x.x.x.apk` | 直接安装；长按桌面可添加「猫猫糕」小组件 |
+| iOS | 网页版（PWA） | 浏览器打开后「添加到主屏幕」，地址见 Releases 说明 |
 
 **首次打开提示**：安装包未做付费签名——
 
@@ -99,6 +102,8 @@ flutter build apk    # 打包 Android APK
 - **Z 修订号**：只修 bug、不动功能
 
 四端（macOS / Windows / Android / iOS 网页版）共用同一版本号，Release 以 `vX.Y.Z` 打 tag。
+
+> 例外：手机端 3D 化完成前，手机端（2D 线）单独走 2.x 版本号（当前 v2.1.0）；桌面端 v3.0.0 起为 3D 版。手机端 3D 化落地后回归同号。
 
 ---
 
