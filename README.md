@@ -50,7 +50,7 @@
 
 1. 注册 Supabase，创建一个免费项目（区域选 Singapore / Tokyo）
 2. 项目里打开 **SQL Editor**，把 [`supabase/schema.sql`](supabase/schema.sql) 全文粘贴执行一次
-3. **Project Settings → API** 里复制 Project URL 和 anon public key
+3. 项目主页的项目名下方点 **Copy**（或顶部 **Connect**），复制 Project URL 和 Publishable key（`sb_publishable_` 开头）
 4. 猫猫糕右键 → **登录 / 服务器**，填入 URL 和 key，注册/登录账号
 5. 手机端（`mobile/`，Flutter 工程）填入同一套配置，和朋友互加用户名即可互戳
 
@@ -73,13 +73,32 @@ flutter run          # 调试运行
 flutter build apk    # 打包 Android APK
 ```
 
+目录结构：
+
+```
+├── desktop/            # Electron 桌面端
+│   ├── main.js         # 主进程：窗口、托盘、菜单、配置
+│   └── renderer/       # 界面：猫猫糕动画、图鉴、台词编辑器、叫声设置等
+│       ├── cakes/      # 27 只猫猫糕立绘（透明背景 WebP）
+│       └── meows/      # 7 个预设叫声
+├── mobile/             # Flutter 手机端（联机遥控器）
+└── supabase/schema.sql # 联机后端建表脚本
+```
 
 ## ❤️ 致谢
 
 - 作者：**@渊源远愿**（[bilibili](https://space.bilibili.com/291097096)）
-- 特别鸣谢：**@黎昼** **@Ricer_Chung** **@Kimi**
+- 特别鸣谢：**@黎昼** **@Ricer_Chung** **@素素素嘻🌱** **@Kimi**
 - QQ 交流群：**537022910**
 - 猫猫糕形象来自游戏《崩坏：星穹铁道》，本项目为非官方同人作品，仅供学习交流
+
+## 🔢 版本号规则（X.Y.Z）
+
+- **X 大版本**：大功能更新（如联机系统、新增平台、重大重构）
+- **Y 小版本**：小功能更新（如免打扰、自定义台词、新动作）
+- **Z 修订号**：只修 bug、不动功能
+
+四端（macOS / Windows / Android / iOS 网页版）共用同一版本号，Release 以 `vX.Y.Z` 打 tag。
 
 ---
 

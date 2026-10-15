@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 24px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin-top: 0; font-size: 18px; }
+    p.tip { font-size: 12px; color: #999; margin-top: -8px; }
+    label { display: block; margin: 12px 0 4px; font-size: 12px; color: #666; }
+    input {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 16px; padding: 9px 0; width: 100%;
+      border: none; border-radius: 8px; cursor: pointer;
+      background: #ff8fa3; color: #fff; font-size: 14px;
+    }
+    button.secondary { background: #eee; color: #333; margin-top: 8px; }
+    #status { margin-top: 12px; font-size: 12px; color: #888; min-height: 18px; }
+    .row { display: flex; gap: 8px; }
+    .row button { flex: 1; }
+  </style>
+</head>
+<body>
+  <h2>🐱 登录 / 服务器</h2>
+  <p class="tip">不登录也能当普通桌宠玩；登录后才能收到朋友发来的消息</p>
+
+  <label>Supabase 项目 URL（如 https://xxxx.supabase.co）</label>
+  <input id="url" placeholder="https://你的项目.supabase.co" />
+  <label>Supabase anon public key</label>
+  <input id="key" placeholder="eyJhbGciOi..." />
+
+  <label>邮箱</label>
+  <input id="email" type="email" placeholder="you@example.com" />
+  <label>密码</label>
+  <input id="password" type="password" placeholder="至少 6 位" />
+  <label>确认密码（注册时校验）</label>
+  <input id="confirm" type="password" placeholder="再输一遍密码" />
+
+  <div class="row">
+    <button id="loginBtn">登录</button>
+    <button id="registerBtn" class="secondary">注册</button>
+  </div>
+  <button id="saveBtn" class="secondary">仅保存服务器配置</button>
+
+  <div id="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+
+    // 原始错误翻译成中文提示
+    function friendly(e) {
+      const s = (e && e.message) || String(e);
+      if (/Failed to fetch|NetworkError|ERR_INTERNET|fetch failed/i.test(s)) {
+        return '无法连接服务器，请检查网络或服务器地址是否正确';
+      }
+      if (/Invalid login credentials/.test(s)) return '邮箱或密码错误';
+      if (/User already registered/.test(s)) return '该邮箱已注册，请直接登录';
+      if (/Email not confirmed/.test(s)) return '请先完成邮箱验证再登录';
+      if (/timeout|timed out/i.test(s)) return '连接超时，请检查网络后重试';
+      return s.length > 60 ? s.slice(0, 60) + '…' : s;
+    }
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      $('url').value = cfg.supabaseUrl || '';
+      $('key').value = cfg.anonKey || '';
+      $('email').value = cfg.email || '';
+    })();
+
+    async function saveCfg() {
+      await window.api.setConfig({
+        supabaseUrl: $('url').value.trim(),
+        anonKey: $('key').value.trim(),
+        email: $('email').value.trim(),
+      });
+    }
+
+    function client() {
+      // CDN 加载失败时 window.supabase 不存在，提示而不是静默崩
+      if (!window.supabase) {
+        status('❌ 网络异常，supabase 加载失败');
+        return null;
+      }
+      return window.supabase.createClient($('url').value.trim(), $('key').value.trim());
+    }
+
+    $('saveBtn').onclick = async () => {
+      await saveCfg();
+      status('✅ 已保存服务器配置');
+    };
+
+    $('loginBtn').onclick = async () => {
+      try {
+        status('登录中…');
+        await saveCfg();
+        const sb = client();
+        if (!sb) return;
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: $('email').value.trim(),
+          password: $('password').value,
+        });
+        if (error) throw error;
+        window.api.sendSession(data.session);
+        status('✅ 登录成功！猫猫糕已连接');
+      } catch (e) { status('❌ ' + friendly(e)); }
+    };
+
+    $('registerBtn').onclick = async () => {
+      try {
+        if ($('password').value !== $('confirm').value) {
+          status('❌ 两次输入的密码不一致');
+          return;
+        }
+        if ($('password').value.length < 6) {
+          status('❌ 密码至少 6 位');
+          return;
+        }
+        status('注册中…');
+        await saveCfg();
+        const sb = client();
+        if (!sb) return;
+        const { data, error } = await sb.auth.signUp({
+          email: $('email').value.trim(),
+          password: $('password').value,
+        });
+        if (error) throw error;
+        if (data.session) {
+          window.api.sendSession(data.session);
+          status('✅ 注册并登录成功！');
+        } else {
+          status('✅ 注册成功，请去邮箱点确认链接后再登录');
+        }
+      } catch (e) { status('❌ ' + friendly(e)); }
+    };
+  </script>
+</body>
+</html>

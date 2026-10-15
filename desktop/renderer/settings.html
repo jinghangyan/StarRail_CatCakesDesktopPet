@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 24px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin-top: 0; font-size: 18px; }
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .item .desc { font-size: 12px; color: #999; margin-top: 2px; }
+    /* 开关 */
+    .switch {
+      position: relative;
+      width: 44px; height: 24px;
+      flex-shrink: 0;
+      appearance: none;
+      background: #ddd;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background .2s;
+      outline: none;
+    }
+    .switch:checked { background: #ff8fa3; }
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 20px; height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .switch:checked::after { left: 22px; }
+    #status { margin-top: 16px; font-size: 12px; color: #888; min-height: 18px; }
+    /* 流光颜色色板 */
+    .swatches { display: flex; gap: 10px; padding: 12px 0; }
+    .swatch {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform .15s;
+    }
+    .swatch:hover { transform: scale(1.12); }
+    .swatch.selected { border-color: #333; }
+    .sw-label { font-size: 12px; color: #666; margin-top: 8px; }
+    /* 分段选择（显示模式 2D/3D） */
+    .seg { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .seg button {
+      border: none; background: #fff; color: #666;
+      padding: 5px 10px; font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    .seg button.on { background: #ff8fa3; color: #fff; }
+    .btn {
+      border: 1px solid #ddd; background: #fff; color: #333;
+      border-radius: 8px; padding: 5px 16px; font-size: 13px; cursor: pointer;
+    }
+    .btn:hover { background: #f0f0f0; }
+    input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
+    .seg button:disabled { opacity: .35; cursor: not-allowed; }
+    .warn { font-size: 12px; color: #d97706; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h2>⚙️ 设置</h2>
+
+  <div class="item">
+    <div>
+      开机自动启动
+      <div class="desc">登录电脑后猫猫糕自动出现在桌面</div>
+    </div>
+    <input type="checkbox" id="autoLaunch" class="switch" />
+  </div>
+
+  <div class="item">
+    <div>
+      窗口始终置顶
+      <div class="desc">猫猫糕始终显示在其他应用窗口上方</div>
+    </div>
+    <input type="checkbox" id="alwaysOnTop" class="switch" />
+  </div>
+
+  <div class="item" style="flex-direction:column;align-items:flex-start;gap:8px">
+    <div>
+      显示模式
+      <div class="desc">3D 为官方模型实时渲染；2D·立绘为官方侧视立绘；2D·正视为模型正面渲染图（2D 更省电）</div>
+    </div>
+    <div class="seg" id="renderModeSeg" style="align-self:stretch;justify-content:center">
+      <button data-v="2d-art" style="flex:1">2D·立绘</button>
+      <button data-v="2d" style="flex:1">2D·正视</button>
+      <button data-v="3d" style="flex:1">3D</button>
+    </div>
+  </div>
+
+  <div class="sw-label">流光颜色（点击猫猫糕时的轮廓光）</div>
+  <div class="swatches" id="swatches"></div>
+
+  <div class="sw-label" style="margin-top:12px">3D 显示</div>
+  <div class="item">
+    <div>
+      浓郁度 <span id="gradeSatVal"></span>
+      <div class="desc">颜色饱和度（默认 1.25）</div>
+    </div>
+    <input type="range" id="gradeSat" min="0.8" max="1.5" step="0.05" style="width:150px" />
+  </div>
+  <div class="item">
+    <div>
+      深度 <span id="gradeGammaVal"></span>
+      <div class="desc">中间调明暗（默认 1.22，越大越浓郁）</div>
+    </div>
+    <input type="range" id="gradeGamma" min="0.8" max="1.5" step="0.05" style="width:150px" />
+  </div>
+  <div class="item" style="flex-direction:column;align-items:flex-start;gap:8px">
+    <div>
+      性能模式
+      <div class="desc" id="perfDesc"></div>
+    </div>
+    <div class="seg" id="perfModeSeg" style="align-self:stretch;justify-content:center">
+      <button data-v="auto" style="flex:1">自动</button>
+      <button data-v="saver" style="flex:1">省电</button>
+      <button data-v="balanced" style="flex:1">均衡</button>
+      <button data-v="high" style="flex:1">高画质</button>
+      <button data-v="custom" style="flex:1">自定义</button>
+    </div>
+    <div id="perfCustomBox" style="display:none;width:100%">
+      <div class="item" style="border-bottom:none;padding:6px 0">
+        <div>
+          清晰度 <span id="perfCustomSSAAVal"></span>
+          <div class="desc">渲染分辨率倍率，越低越省（0.5 ~ 2.0）</div>
+        </div>
+        <input type="range" id="perfCustomSSAA" min="0.5" max="2" step="0.25" style="width:130px" />
+      </div>
+      <div class="item" style="border-bottom:none;padding:6px 0">
+        <div>
+          帧率上限 <span id="perfCustomFPSVal"></span>
+          <div class="desc">每秒最多渲染帧数，越低越省（拉到 60 = 不限）</div>
+        </div>
+        <input type="range" id="perfCustomFPS" min="15" max="60" step="5" style="width:130px" />
+      </div>
+    </div>
+    <div class="warn" id="softGLTip" style="display:none"></div>
+  </div>
+  <div class="item" id="forceGpuRow">
+    <div>
+      强制 GPU 渲染（实验）
+      <div class="desc">显卡被误伤走软件渲染时可尝试；改动后重启应用生效；若黑屏/花屏请关回</div>
+    </div>
+    <input type="checkbox" id="forceGpu" class="switch" />
+  </div>
+
+  <div class="sw-label" style="margin-top:12px">诊断（平时请保持关闭）</div>
+  <div class="item">
+    <div>
+      记录诊断数据
+      <div class="desc">遇到 bug 时打开，猫猫会记录帧率/报错等运行数据；没 bug 就关上</div>
+    </div>
+    <input type="checkbox" id="diagLog" class="switch" />
+  </div>
+  <div class="item">
+    <div>
+      导出诊断包
+      <div class="desc">把诊断数据和日志打包成一个文件，发给作者排障</div>
+    </div>
+    <button id="diagExport" class="btn">导出</button>
+  </div>
+  <div class="sw-label" style="margin-top:12px">视角（宠物窗上 Shift+拖动旋转，双击复位）</div>
+  <div class="item">
+    <div>
+      左右角度 <span id="viewYawVal"></span>
+      <div class="desc">-180° ~ 180°</div>
+    </div>
+    <input type="range" id="viewYaw" min="-180" max="180" step="1" style="width:150px" />
+  </div>
+  <div class="item">
+    <div>
+      俯仰角度 <span id="viewPitchVal"></span>
+      <div class="desc">-30° ~ 30°</div>
+    </div>
+    <input type="range" id="viewPitch" min="-30" max="30" step="1" style="width:150px" />
+  </div>
+  <div class="item">
+    <div>
+      复位视角
+      <div class="desc">回到正面默认角度</div>
+    </div>
+    <button id="viewReset" class="btn">复位</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+
+    const COLORS = {
+      rainbow: { name: '彩虹', css: 'conic-gradient(#ffd54f,#ff8fa3,#80deea,#b39dff,#ffd54f)' },
+      gold: { name: '鎏金', css: 'conic-gradient(#fff3b0,#ffd54f,#ff9e3d,#fff3b0)' },
+      pink: { name: '樱花粉', css: 'conic-gradient(#ffd6e8,#ff8fb3,#ff5c8a,#ffd6e8)' },
+      ice: { name: '冰蓝', css: 'conic-gradient(#d0f4ff,#7fd8ff,#4aa8ff,#d0f4ff)' },
+      purple: { name: '星紫', css: 'conic-gradient(#e6d6ff,#b39dff,#7c5cff,#e6d6ff)' },
+    };
+    let glowColor = 'rainbow';
+
+    function renderSwatches() {
+      const box = $('swatches');
+      box.innerHTML = '';
+      for (const [key, c] of Object.entries(COLORS)) {
+        const el = document.createElement('div');
+        el.className = 'swatch' + (key === glowColor ? ' selected' : '');
+        el.style.background = c.css;
+        el.title = c.name;
+        el.onclick = () => {
+          glowColor = key;
+          window.api.setPrefs({ glowColor: key });
+          renderSwatches();
+        };
+        box.appendChild(el);
+      }
+    }
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      $('autoLaunch').checked = cfg.autoLaunch === true;
+      $('alwaysOnTop').checked = cfg.alwaysOnTop !== false; // 默认开
+      glowColor = cfg.glowColor || 'rainbow';
+      $('gradeSat').value = cfg.gradeSat ?? 1.25;
+      $('gradeGamma').value = cfg.gradeGamma ?? 1.22;
+      $('gradeSatVal').textContent = Number($('gradeSat').value).toFixed(2);
+      $('gradeGammaVal').textContent = Number($('gradeGamma').value).toFixed(2);
+      renderMode = ['2d', '2d-art', '3d'].includes(cfg.renderMode) ? cfg.renderMode : '3d'; // 默认 3D
+      perfMode = ['auto', 'saver', 'balanced', 'high', 'custom'].includes(cfg.perfMode) ? cfg.perfMode : 'auto';
+      $('forceGpu').checked = cfg.forceGpu === true;
+      $('diagLog').checked = cfg.diagLog === true;
+      $('perfCustomSSAA').value = cfg.perfCustomSSAA ?? 1.0;
+      $('perfCustomFPS').value = cfg.perfCustomFPS ?? 30;
+      $('perfCustomSSAAVal').textContent = Number($('perfCustomSSAA').value).toFixed(2) + '×';
+      $('perfCustomFPSVal').textContent = Number($('perfCustomFPS').value) >= 60 ? '60（不限）' : $('perfCustomFPS').value;
+      applyPerfUI();
+      probeSoftGL();
+      showView(cfg.viewYaw || 0, cfg.viewPitch || 0);
+      applyModeUI();
+      renderSwatches();
+    })();
+
+    // 调色滑块：oninput 实时生效（150ms 节流，避免拖滑动时狂写配置文件）
+    function bindGrade(id, key, valId) {
+      let timer = null;
+      $(id).oninput = () => {
+        $(valId).textContent = Number($(id).value).toFixed(2);
+        clearTimeout(timer);
+        timer = setTimeout(() => window.api.setPrefs({ [key]: Number($(id).value) }), 150);
+      };
+    }
+    bindGrade('gradeSat', 'gradeSat', 'gradeSatVal');
+    bindGrade('gradeGamma', 'gradeGamma', 'gradeGammaVal');
+
+    // ---- 性能模式（3D）：自动/省电/均衡/高画质/自定义；软渲染机器自动按省电参数渲染 ----
+    let perfMode = 'auto';
+    const PERF_DESCS = {
+      auto: '自动：检测到显卡软件渲染（CPU 作画）时用省电档，否则用高画质。一般选这个',
+      saver: '省电：清晰度 1.0×，上限 20 帧。老电脑 / CPU 占用高选这个',
+      balanced: '均衡：清晰度 1.0×，上限 30 帧。想要更清晰又有点卡选这个',
+      high: '高画质：清晰度 1.5× 超采样，不限帧。显卡好选这个',
+      custom: '自定义：自己调清晰度和帧率上限，边调边看效果',
+    };
+    function applyPerfUI() {
+      for (const b of $('perfModeSeg').querySelectorAll('button')) {
+        b.classList.toggle('on', b.dataset.v === perfMode);
+      }
+      $('perfDesc').textContent = PERF_DESCS[perfMode] || PERF_DESCS.auto;
+      $('perfCustomBox').style.display = perfMode === 'custom' ? '' : 'none';
+    }
+    $('perfModeSeg').addEventListener('click', (e) => {
+      const v = e.target.dataset && e.target.dataset.v;
+      if (!v || v === perfMode) return;
+      perfMode = v;
+      applyPerfUI();
+      window.api.setPrefs({ perfMode: v });
+      status('✅ 已保存');
+      setTimeout(() => status(''), 1500);
+    });
+    // 自定义档滑块：oninput 实时生效（150ms 节流同调色滑块）
+    function bindPerfCustom(id, key, valId, fmt) {
+      let timer = null;
+      $(id).oninput = () => {
+        $(valId).textContent = fmt(Number($(id).value));
+        clearTimeout(timer);
+        timer = setTimeout(() => window.api.setPrefs({ [key]: Number($(id).value) }), 150);
+      };
+    }
+    bindPerfCustom('perfCustomSSAA', 'perfCustomSSAA', 'perfCustomSSAAVal', (v) => v.toFixed(2) + '×');
+    bindPerfCustom('perfCustomFPS', 'perfCustomFPS', 'perfCustomFPSVal', (v) => v >= 60 ? '60（不限）' : String(v));
+    // 软渲染探测（与 pet3d 同款 probe）：给用户一行确诊提示，也方便截图发回排障
+    function probeSoftGL() {
+      try {
+        const c = document.createElement('canvas');
+        const gl = c.getContext('webgl2') || c.getContext('webgl');
+        if (!gl) return;
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const str = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+        const lose = gl.getExtension('WEBGL_lose_context');
+        if (lose) lose.loseContext();
+        if (str && /swiftshader|llvmpipe|softpipe|software|angle \(google/i.test(str)) {
+          $('softGLTip').textContent = `⚠️ 检测到显卡正走软件渲染（${str}），3D 由 CPU 绘制、占用会偏高，建议选「省电」或切换 2D 显示模式`;
+          $('softGLTip').style.display = '';
+        }
+      } catch { /* 探测失败不提示 */ }
+    }
+    $('forceGpu').onchange = () => {
+      window.api.setPrefs({ forceGpu: $('forceGpu').checked });
+      status('✅ 已保存，重启应用后生效');
+      setTimeout(() => status(''), 2500);
+    };
+
+    // ---- 诊断：开关即存即生效（宠物窗 diag.js 监听 prefs 热切换）----
+    $('diagLog').onchange = () => {
+      window.api.setPrefs({ diagLog: $('diagLog').checked });
+      status($('diagLog').checked ? '✅ 诊断记录已开启' : '✅ 诊断记录已关闭');
+      setTimeout(() => status(''), 2000);
+    };
+    $('diagExport').onclick = async () => {
+      status('正在导出…');
+      const r = await window.api.exportDiag();
+      status(r.ok ? `✅ 已导出：${r.path}` : (r.canceled ? '已取消' : '❌ 导出失败'));
+      if (r.ok) setTimeout(() => status(''), 5000);
+    };
+
+    // ---- 显示模式 2D/3D 分段开关（走 prefs:changed 链路，宠物窗 pet3d 可逆切换）----
+    let renderMode = '3d';
+    function applyModeUI() {
+      for (const b of $('renderModeSeg').querySelectorAll('button')) {
+        b.classList.toggle('on', b.dataset.v === renderMode);
+      }
+      const is2d = renderMode !== '3d'; // 2D 模式下视角/性能模式是 3D 功能，置灰
+      $('viewYaw').disabled = is2d;
+      $('viewPitch').disabled = is2d;
+      $('viewReset').disabled = is2d;
+      for (const b of $('perfModeSeg').querySelectorAll('button')) b.disabled = is2d;
+      $('forceGpu').disabled = is2d;
+      $('perfCustomSSAA').disabled = is2d;
+      $('perfCustomFPS').disabled = is2d;
+    }
+    $('renderModeSeg').addEventListener('click', (e) => {
+      const v = e.target.dataset && e.target.dataset.v;
+      if (!v || v === renderMode) return;
+      renderMode = v;
+      applyModeUI();
+      window.api.setPrefs({ renderMode: v });
+      status('✅ 已保存');
+      setTimeout(() => status(''), 1500);
+    });
+
+    // ---- 视角滑块（配置存弧度，滑块按度显示；150ms 节流同调色滑块）----
+    const R2D = 180 / Math.PI;
+    let viewEditing = false; // 拖滑块期间不回写，避免和手势同步互相打架
+    function showView(yawRad, pitchRad) {
+      // yaw 归一化到 -180~180（Shift+手势可累计超过一圈）
+      const yawDeg = ((yawRad * R2D + 180) % 360 + 360) % 360 - 180;
+      const pitchDeg = pitchRad * R2D;
+      $('viewYaw').value = Math.round(yawDeg);
+      $('viewPitch').value = Math.round(pitchDeg);
+      $('viewYawVal').textContent = Math.round(yawDeg) + '°';
+      $('viewPitchVal').textContent = Math.round(pitchDeg) + '°';
+    }
+    function bindView(id, key, valId) {
+      let timer = null;
+      $(id).oninput = () => {
+        $(valId).textContent = $(id).value + '°';
+        clearTimeout(timer);
+        timer = setTimeout(() => window.api.setPrefs({ [key]: Number($(id).value) / R2D }), 150);
+      };
+      $(id).addEventListener('pointerdown', () => { viewEditing = true; });
+      $(id).addEventListener('pointerup', () => { viewEditing = false; });
+    }
+    bindView('viewYaw', 'viewYaw', 'viewYawVal');
+    bindView('viewPitch', 'viewPitch', 'viewPitchVal');
+    $('viewReset').onclick = () => {
+      showView(0, 0);
+      window.api.setPrefs({ viewYaw: 0, viewPitch: 0 });
+    };
+    // Shift+手势/双击改的视角：宠物窗 setConfig → config:changed 广播到本页刷新滑块
+    window.api.onConfigChanged(async () => {
+      if (viewEditing) return;
+      const cfg = await window.api.getConfig();
+      showView(cfg.viewYaw || 0, cfg.viewPitch || 0);
+    });
+
+    function save() {
+      window.api.setPrefs({
+        autoLaunch: $('autoLaunch').checked,
+        alwaysOnTop: $('alwaysOnTop').checked,
+      });
+      status('✅ 已保存');
+      setTimeout(() => status(''), 1500);
+    }
+
+    $('autoLaunch').onchange = save;
+    $('alwaysOnTop').onchange = save;
+  </script>
+</body>
+</html>

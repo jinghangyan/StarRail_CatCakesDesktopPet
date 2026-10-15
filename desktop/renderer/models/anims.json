@@ -1,0 +1,15 @@
+{
+  "StandBy": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_StandBy",
+  "Roar01AS": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Roar01AS",
+  "Roar01BS": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Roar01BS",
+  "Roar01Loop": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Roar01Loop",
+  "Talk01": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Talk01",
+  "Jump": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Jump01",
+  "Landing": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Landing01",
+  "Hit": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Hit01",
+  "Move": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Move01",
+  "MoveAS": "anims/ruanmadecake-anims.glb#NPC_RuanMadeCake_00_Adv_Ani_Move01AS",
+  "Blink": "anims/ruanmadecake-anims.glb#Emo_RuanMadeCake_00_Ani_Blink",
+  "CloseEye": "anims/ruanmadecake-anims.glb#Emo_RuanMadeCake_00_Close01_Eye",
+  "DefaultEye": "anims/ruanmadecake-anims.glb#Emo_RuanMadeCake_00_Default_Eye"
+}

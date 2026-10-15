@@ -1,0 +1,35 @@
+# ---- 系统/编辑器 ----
+.DS_Store
+.idea/
+*.iml
+__pycache__/
+
+# ---- 桌面端（Electron） ----
+desktop/node_modules/
+desktop/dist/
+
+# ---- 手机端（Flutter） ----
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/build/
+
+# ---- AnimeStudio 工具链（上游 master + 桌宠补丁，源码入库，编译产物不入库） ----
+tools/animestudio-build/**/bin/
+tools/animestudio-build/**/obj/
+
+# ---- 重型本地产物 ----
+tools/dotnet/
+tools/.venv/
+tools/import*/
+tools/assetmap-ios/
+tools/extract-catcakes/app/node_modules/
+tools/extract-catcakes/app/dist/
+tools/extract-catcakes/app/tools/
+tools/extract-catcakes/app/work/
+
+# ---- 打包副产品 ----
+*.blockmap

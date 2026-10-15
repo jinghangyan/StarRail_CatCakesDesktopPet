@@ -1,0 +1,36 @@
+{
+  "name": "catcake-extractor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "猫猫糕模型提取工具 - 从崩铁本地资产提取猫猫糕 3D 模型（FBX→GLB）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.catcake.extractor",
+    "productName": "猫猫糕提取工具",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      { "from": "tools/", "to": "tools" }
+    ],
+    "win": {
+      "target": ["zip", "portable"]
+    },
+    "portable": {
+      "artifactName": "猫猫糕提取工具.exe"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

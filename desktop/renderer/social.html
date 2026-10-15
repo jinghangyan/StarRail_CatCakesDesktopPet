@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; background: #fafafa; color: #333;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    header {
+      padding: 14px 18px 10px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid #eee;
+      background: #fff;
+    }
+    header h2 { font-size: 16px; margin: 0; flex: 1; }
+    .tabs { display: flex; gap: 8px; padding: 10px 18px 0; }
+    .tab {
+      flex: 1; text-align: center; padding: 8px 0;
+      border-radius: 9px; background: #eee; cursor: pointer; font-weight: 600;
+    }
+    .tab.active { background: #ffeef3; color: #e0507a; border: 1.5px solid #ff8fa3; }
+    #main { flex: 1; overflow-y: auto; padding: 12px 18px; }
+    .row {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border-radius: 10px;
+      padding: 10px 12px; margin-bottom: 8px;
+    }
+    .row .name { flex: 1; font-weight: 600; }
+    .row button {
+      border: none; border-radius: 7px; cursor: pointer;
+      padding: 5px 10px; font-size: 13px;
+      background: #ff8fa3; color: #fff;
+    }
+    .row button.ghost { background: #eee; color: #333; }
+    .addrow { display: flex; gap: 8px; margin-bottom: 12px; }
+    .addrow input {
+      flex: 1; padding: 8px 10px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 13px;
+    }
+    .addrow button {
+      border: none; border-radius: 8px; cursor: pointer;
+      padding: 8px 14px; background: #ff8fa3; color: #fff; font-size: 13px;
+      white-space: nowrap;
+    }
+    #status { font-size: 12px; color: #e0507a; padding: 4px 18px; min-height: 18px; }
+    .empty { text-align: center; color: #aaa; margin-top: 40px; font-size: 13px; }
+
+    /* 聊天视图 */
+    #chatView { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    #chatMsgs { flex: 1; overflow-y: auto; padding: 12px 18px; }
+    .msg { margin-bottom: 8px; max-width: 75%; }
+    .msg .who { font-size: 11px; color: #999; margin-bottom: 2px; }
+    .msg .body {
+      display: inline-block; padding: 8px 12px; border-radius: 12px;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      font-size: 13px; word-break: break-all;
+    }
+    .msg.mine { margin-left: auto; text-align: right; }
+    .msg.mine .body { background: #ffd6e0; }
+    .msg.blink .body { background: #fff3c4; }
+    #chatInput {
+      display: flex; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid #eee; background: #fff;
+    }
+    #chatInput input {
+      flex: 1; padding: 8px 10px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 13px;
+    }
+    #chatInput button {
+      border: none; border-radius: 8px; cursor: pointer;
+      padding: 8px 12px; background: #ff8fa3; color: #fff; font-size: 15px;
+    }
+    #chatInput .zap { background: #ffe27a; }
+    .back {
+      border: none; background: none; cursor: pointer;
+      font-size: 15px; color: #ff5c8a; padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button class="back" id="backBtn" style="display:none">← 返回</button>
+    <h2 id="title">联机</h2>
+    <button class="back" id="myNameBtn" style="display:none" title="点击修改用户名">…</button>
+  </header>
+  <div id="status"></div>
+
+  <div id="listView" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+    <div class="tabs">
+      <div class="tab active" id="tabFriends">好友</div>
+      <div class="tab" id="tabGroups">群组</div>
+    </div>
+    <div id="main"></div>
+  </div>
+
+  <div id="chatView">
+    <div id="chatMsgs"></div>
+    <div id="chatInput">
+      <button class="zap" id="chatBlink" title="戳一戳">✨</button>
+      <input id="chatText" placeholder="发消息…" />
+      <button id="chatSend">➤</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+    let sb = null, myId = null, tab = 'friends';
+    let chatTarget = null; // {type:'dm'|'group', id, name}
+    let chatChannel = null;
+    const nameCache = {};
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      if (!cfg.supabaseUrl || !cfg.anonKey) { status('请先在「右键 → 登录 / 服务器」里配置'); return; }
+      // CDN 加载失败时 window.supabase 不存在，提示而不是静默崩
+      if (!window.supabase) { status('网络异常，supabase 加载失败'); return; }
+      sb = window.supabase.createClient(cfg.supabaseUrl, cfg.anonKey);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { status('请先登录（右键 → 登录 / 服务器）'); return; }
+      myId = session.user.id;
+      status('');
+      await showMyName();
+      render();
+    })();
+
+    // 显示/修改我的用户名（加好友时朋友要搜的就是它）
+    let myName = '';
+    async function showMyName() {
+      const { data } = await sb.from('profiles').select('username').eq('id', myId).maybeSingle();
+      if (data) {
+        myName = data.username;
+        $('myNameBtn').textContent = '👤 ' + data.username + ' ✏️';
+        $('myNameBtn').style.display = '';
+      }
+    }
+    $('myNameBtn').onclick = () => {
+      inlinePrompt('新的用户名（当前：' + myName + '）', async (name) => {
+        if (name === myName) return;
+        const { error } = await sb.from('profiles').update({ username: name }).eq('id', myId);
+        const dupName = error && /duplicate key/.test(error.message) && /username/.test(error.message);
+        status(error ? (dupName ? '❌ 这个用户名已经被占用了，换一个吧' : '❌ ' + error.message) : '✅ 用户名已改为 ' + name);
+        if (!error) await showMyName();
+      });
+    };
+
+    function showTab(t) {
+      tab = t;
+      $('tabFriends').className = 'tab' + (t === 'friends' ? ' active' : '');
+      $('tabGroups').className = 'tab' + (t === 'groups' ? ' active' : '');
+      render();
+    }
+    $('tabFriends').addEventListener('click', () => showTab('friends'));
+    $('tabGroups').addEventListener('click', () => showTab('groups'));
+
+    async function nameOf(id) {
+      if (!nameCache[id]) {
+        const { data } = await sb.from('profiles').select('username').eq('id', id).maybeSingle();
+        nameCache[id] = data ? data.username : '?';
+      }
+      return nameCache[id];
+    }
+
+    // 纯 DOM 构造，用户名/群名一律走 textContent，事件走 addEventListener，杜绝 XSS
+    function makeAddRow(placeholder, btnText, onSubmit) {
+      const row = document.createElement('div');
+      row.className = 'addrow';
+      const input = document.createElement('input');
+      input.placeholder = placeholder;
+      const btn = document.createElement('button');
+      btn.textContent = btnText;
+      btn.addEventListener('click', onSubmit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) onSubmit();
+      });
+      row.appendChild(input);
+      row.appendChild(btn);
+      return { row, input };
+    }
+
+    function makeListRow(nameText, buttons) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = nameText;
+      row.appendChild(name);
+      for (const b of buttons) {
+        const btn = document.createElement('button');
+        btn.textContent = b.text;
+        if (b.ghost) btn.className = 'ghost';
+        btn.addEventListener('click', b.onClick);
+        row.appendChild(btn);
+      }
+      return row;
+    }
+
+    function showEmpty(listEl, text) {
+      const div = document.createElement('div');
+      div.className = 'empty';
+      div.textContent = text;
+      listEl.appendChild(div);
+    }
+
+    async function render() {
+      if (!sb) return;
+      const main = $('main');
+      main.textContent = '';
+      if (tab === 'friends') {
+        const { row, input } = makeAddRow('输入用户名添加好友', '添加', addFriend);
+        input.id = 'addFriendInput';
+        const list = document.createElement('div');
+        main.appendChild(row);
+        main.appendChild(list);
+        const { data: rows, error } = await sb.from('friendships')
+          .select('user_id, friend_id').or(`user_id.eq.${myId},friend_id.eq.${myId}`);
+        if (error) { status('❌ ' + error.message); return; }
+        const ids = [...new Set((rows || []).map((r) => r.user_id === myId ? r.friend_id : r.user_id))];
+        if (ids.length === 0) {
+          showEmpty(list, '还没有好友，输入用户名添加');
+          return;
+        }
+        const { data: profiles, error: pErr } = await sb.from('profiles').select().in('id', ids);
+        if (pErr) { status('❌ ' + pErr.message); return; }
+        for (const p of (profiles || [])) {
+          list.appendChild(makeListRow('🐱 ' + p.username, [
+            { text: '✨ 戳一戳', ghost: true, onClick: () => sendBlink(p.id) },
+            { text: '💬 聊天', onClick: () => openChat('dm', p.id, p.username) },
+          ]));
+        }
+      } else {
+        const { row, input } = makeAddRow('新群组名称', '创建群组', createGroup);
+        input.id = 'addGroupInput';
+        const list = document.createElement('div');
+        main.appendChild(row);
+        main.appendChild(list);
+        const { data: mems, error } = await sb.from('group_members').select('group_id').eq('user_id', myId);
+        if (error) { status('❌ ' + error.message); return; }
+        const ids = (mems || []).map((m) => m.group_id);
+        if (ids.length === 0) {
+          showEmpty(list, '还没有群组，创建一个吧');
+          return;
+        }
+        const { data: groups, error: gErr } = await sb.from('groups').select().in('id', ids);
+        if (gErr) { status('❌ ' + gErr.message); return; }
+        for (const g of (groups || [])) {
+          list.appendChild(makeListRow('👥 ' + g.name, [
+            { text: '＋邀请', ghost: true, onClick: () => invite(g.id, g.name) },
+            { text: '💬 进入', onClick: () => openChat('group', g.id, g.name) },
+          ]));
+        }
+      }
+    }
+
+    async function findUser(username) {
+      const { data } = await sb.from('profiles').select().eq('username', username).maybeSingle();
+      return data;
+    }
+
+    // Electron 不支持 prompt()，用内嵌输入条代替
+    function inlinePrompt(placeholder, onSubmit) {
+      // 防止连点出现多个输入条
+      const existing = document.querySelector('.inlineprompt input');
+      if (existing) { existing.focus(); return; }
+      const main = $('main');
+      const bar = document.createElement('div');
+      bar.className = 'addrow inlineprompt';
+      const input = document.createElement('input');
+      input.placeholder = placeholder; // textContent 赋值，用户名拼进提示也不怕注入
+      const btn = document.createElement('button');
+      btn.textContent = '确定';
+      bar.appendChild(input);
+      bar.appendChild(btn);
+      main.insertBefore(bar, main.firstChild);
+      input.focus();
+      const done = () => {
+        const v = input.value.trim();
+        bar.remove();
+        if (v) onSubmit(v);
+      };
+      btn.onclick = done;
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.isComposing) done();
+        if (e.key === 'Escape') bar.remove();
+      };
+    }
+
+    window.addFriend = async () => {
+      const username = $('addFriendInput').value.trim();
+      if (!username) return;
+      const user = await findUser(username);
+      if (!user) { status('找不到这个用户名'); return; }
+      if (user.id === myId) { status('不能添加自己'); return; }
+      const { error } = await sb.from('friendships').upsert(
+        { user_id: myId, friend_id: user.id },
+        { onConflict: 'user_id,friend_id', ignoreDuplicates: true });
+      status(error ? '❌ ' + error.message : '✅ 已添加 ' + user.username);
+      render();
+    };
+
+    window.createGroup = async () => {
+      const name = $('addGroupInput').value.trim();
+      if (!name) return;
+      const { data: g, error } = await sb.from('groups')
+        .insert({ name, owner_id: myId }).select().single();
+      if (error) { status('❌ ' + error.message); return; }
+      await sb.from('group_members').insert({ group_id: g.id, user_id: myId });
+      status('✅ 已创建群组「' + name + '」');
+      render();
+    };
+
+    window.invite = (groupId, groupName) => {
+      inlinePrompt('邀请加入「' + groupName + '」，输入对方用户名', async (username) => {
+        const user = await findUser(username);
+        if (!user) { status('找不到这个用户名'); return; }
+        const { error } = await sb.from('group_members').upsert(
+          { group_id: groupId, user_id: user.id },
+          { onConflict: 'group_id,user_id', ignoreDuplicates: true });
+        status(error ? '❌ ' + error.message : '✅ 已邀请 ' + user.username);
+      });
+    };
+
+    window.sendBlink = async (friendId) => {
+      await insertMsg('dm', friendId, 'blink', '');
+      status('✅ 已戳一戳');
+    };
+
+    async function insertMsg(targetType, targetId, kind, content) {
+      return sb.from('messages').insert({
+        sender_id: myId, target_type: targetType, target_id: targetId, kind, content,
+      }).select().single(); // 取回完整行（含 id / created_at）用于本地即时回显
+    }
+
+    // ---------- 聊天 ----------
+    const PAGE = 30;
+    let chatLoading = false;
+    let chatNoMore = false;
+    let chatMsgs = [];   // 时间升序
+    let chatIds = new Set();
+
+    function archiveKey() { return 'chat_' + chatTarget.type + '_' + chatTarget.id; }
+    function loadArchive() {
+      try { return JSON.parse(localStorage.getItem(archiveKey()) || '[]'); }
+      catch { return []; }
+    }
+    function saveArchive() {
+      const list = chatMsgs.length > 2000 ? chatMsgs.slice(-2000) : chatMsgs;
+      localStorage.setItem(archiveKey(), JSON.stringify(list));
+    }
+
+    let chatOpening = false;
+    window.openChat = async (type, id, name) => {
+      if (chatOpening) return; // 防连点重复打开（会产生重复订阅和轮询）
+      chatOpening = true;
+      try {
+      chatTarget = { type, id, name };
+      chatMsgs = []; chatIds = new Set(); chatNoMore = false;
+      $('title').textContent = name;
+      $('backBtn').style.display = '';
+      $('listView').style.display = 'none';
+      $('chatView').style.display = 'flex';
+      $('chatMsgs').innerHTML = '';
+      // 先上本地存档（秒开），再拉服务器最新一页（不带 lt 过滤）补齐缺口
+      for (const m of loadArchive()) {
+        if (chatIds.add(m.id)) chatMsgs.push(m);
+      }
+      for (const m of chatMsgs) await appendMsg(m, true);
+      await loadLatest();
+      subscribe();
+      startChatPoll();
+      $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight; // 打开聊天滚到底部
+      $('chatText').focus();
+      } finally {
+        chatOpening = false;
+      }
+    };
+
+    // 轮询兜底：Realtime 不推时也能 3 秒内收到新消息
+    let chatPollTimer = null;
+    function startChatPoll() {
+      stopChatPoll();
+      chatPollTimer = setInterval(async () => {
+        if (!chatTarget || chatMsgs.length === 0) return;
+        try {
+          const { data } = await sb.from('messages').select()
+            .gt('created_at', chatMsgs[chatMsgs.length - 1].created_at)
+            .order('created_at');
+          for (const m of (data || [])) {
+            if (inConversation(m) && chatIds.add(m.id)) {
+              chatMsgs.push(m);
+              await appendMsg(m);
+              saveArchive();
+            }
+          }
+        } catch { /* 网络抖动忽略 */ }
+      }, 3000);
+    }
+    function stopChatPoll() {
+      if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+    }
+
+    // 拉最新一页合并进本地（靠 chatIds 去重），补存档与服务器之间的缺口
+    async function loadLatest() {
+      const { data, error } = await sb.from('messages').select()
+        .order('created_at', { ascending: false }).limit(PAGE);
+      if (error) { status('❌ ' + error.message); return; }
+      const recent = (data || []).filter(inConversation).reverse(); // 时间升序
+      let added = 0;
+      for (const m of recent) {
+        if (chatIds.add(m.id)) { chatMsgs.push(m); await appendMsg(m, true); added++; }
+      }
+      if (added > 0) {
+        // 合并后保持升序（存档缺口场景下新消息一定更晚，排序只是兜底）
+        chatMsgs.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+        saveArchive();
+      }
+    }
+
+    $('backBtn').onclick = () => {
+      if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
+      stopChatPoll();
+      chatTarget = null;
+      $('title').textContent = '联机';
+      $('backBtn').style.display = 'none';
+      $('chatView').style.display = 'none';
+      $('listView').style.display = 'flex';
+      render();
+    };
+
+    function inConversation(m) {
+      if (m.target_type !== chatTarget.type) return false;
+      if (chatTarget.type === 'group') return m.target_id === chatTarget.id;
+      return (m.sender_id === myId && m.target_id === chatTarget.id) ||
+             (m.sender_id === chatTarget.id && m.target_id === myId);
+    }
+
+    // 消息气泡纯 DOM 构造，昵称和消息内容都走 textContent，杜绝 XSS
+    async function buildMsgDiv(m) {
+      const mine = m.sender_id === myId;
+      const div = document.createElement('div');
+      div.className = 'msg' + (mine ? ' mine' : '') + (m.kind === 'blink' ? ' blink' : '');
+      if (!mine) {
+        const who = document.createElement('div');
+        who.className = 'who';
+        who.textContent = await nameOf(m.sender_id);
+        div.appendChild(who);
+      }
+      const body = document.createElement('div');
+      body.className = 'body';
+      body.textContent = m.kind === 'blink'
+        ? (mine ? '✨ 你戳了戳对方' : '✨ 戳了戳你')
+        : m.content;
+      div.appendChild(body);
+      return div;
+    }
+
+    async function appendMsg(m, noScroll) {
+      const box = $('chatMsgs');
+      // DOM 级去重：乐观回显/realtime/轮询任何一路重复都只显示一条
+      if (box.querySelector(`[data-mid="${m.id}"]`)) return;
+      const div = await buildMsgDiv(m);
+      div.dataset.mid = m.id;
+      box.appendChild(div);
+      if (!noScroll) box.scrollTop = box.scrollHeight;
+    }
+
+    async function prependMsg(m) {
+      const box = $('chatMsgs');
+      if (box.querySelector(`[data-mid="${m.id}"]`)) return;
+      const div = await buildMsgDiv(m);
+      div.dataset.mid = m.id;
+      box.insertBefore(div, box.firstChild);
+    }
+
+    // 往前翻一页（微信式：滚到顶部再加载）
+    async function loadMore(initial) {
+      if (chatLoading || (chatNoMore && !initial)) return;
+      chatLoading = true;
+      try {
+        let query = sb.from('messages').select()
+          .order('created_at', { ascending: false }).limit(PAGE);
+        if (chatMsgs.length > 0) query = query.lt('created_at', chatMsgs[0].created_at);
+        const { data } = await query;
+        const older = (data || []).filter(inConversation);
+        const box = $('chatMsgs');
+        const oldHeight = box.scrollHeight;
+        let added = 0;
+        for (const m of older.reverse()) {
+          if (chatIds.add(m.id)) { chatMsgs.unshift(m); await prependMsg(m); added++; }
+        }
+        // 保持滚动位置不跳
+        if (added > 0 && !initial) box.scrollTop += box.scrollHeight - oldHeight;
+        if (added > 0) saveArchive();
+        if (older.length < PAGE) {
+          chatNoMore = true;
+          if (chatMsgs.length > 0) showNoMore();
+        }
+      } finally {
+        chatLoading = false;
+      }
+    }
+
+    function showNoMore() {
+      const box = $('chatMsgs');
+      if (box.querySelector('.nomore')) return;
+      const div = document.createElement('div');
+      div.className = 'nomore';
+      div.style.cssText = 'text-align:center;color:#bbb;font-size:11px;padding:6px';
+      div.textContent = '— 没有更早的消息了 —';
+      box.insertBefore(div, box.firstChild);
+    }
+
+    $('chatMsgs').addEventListener('scroll', () => {
+      if ($('chatMsgs').scrollTop < 40) loadMore(false);
+    });
+
+    function subscribe() {
+      // 公共频道；服务器开了 Realtime 授权时不推消息，由轮询兜底
+      chatChannel = sb.channel('chat-' + Date.now())
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
+          async (payload) => {
+            const m = payload.new;
+            if (inConversation(m) && chatIds.add(m.id)) {
+              chatMsgs.push(m);
+              await appendMsg(m);
+              saveArchive();
+            }
+          })
+        .subscribe();
+    }
+
+    $('chatSend').onclick = async () => {
+      const text = $('chatText').value.trim();
+      if (!text || !chatTarget) return;
+      $('chatText').value = '';
+      const { data, error } = await insertMsg(chatTarget.type, chatTarget.id, 'text', text);
+      if (error) { status('❌ ' + error.message); return; }
+      // 乐观回显：不等 realtime，插入成功立即上屏并存档（realtime 回来靠 chatIds 去重）
+      if (data && chatIds.add(data.id)) {
+        chatMsgs.push(data);
+        await appendMsg(data);
+        saveArchive();
+      }
+    };
+    $('chatText').onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.isComposing) $('chatSend').click();
+    };
+    $('chatBlink').onclick = async () => {
+      if (!chatTarget) return;
+      await insertMsg(chatTarget.type, chatTarget.id, 'blink', '');
+    };
+  </script>
+</body>
+</html>

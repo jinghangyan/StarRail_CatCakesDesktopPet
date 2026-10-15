@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 20px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    p.tip { font-size: 12px; color: #999; margin: 0 0 14px; }
+    .picker {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 10px;
+    }
+    .picker img { width: 56px; height: 56px; }
+    select {
+      font-size: 14px; padding: 6px 8px;
+      border: 1px solid #ddd; border-radius: 8px;
+      background: #fff;
+      max-width: 200px;
+    }
+    label.fl { font-size: 12px; color: #666; display: block; margin: 8px 0 2px; }
+    input.line, input.name-input {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; margin: 5px 0;
+      border: 1px solid #ddd; border-radius: 8px;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 12px; padding: 9px 0; width: 100%;
+      border: none; border-radius: 8px; cursor: pointer;
+      background: #ff8fa3; color: #fff; font-size: 14px;
+    }
+    button.secondary { background: #eee; color: #333; }
+    .row { display: flex; gap: 8px; }
+    .row button { flex: 1; }
+    #status { margin-top: 10px; font-size: 12px; color: #888; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <h2>💬 自定义名称和台词</h2>
+  <p class="tip">每只猫猫糕有自己的名字和 3~5 句台词，点击它时随机说一句</p>
+
+  <div class="picker">
+    <img id="preview" src="cakes/cake01.webp" />
+    <select id="cakeSel"></select>
+  </div>
+
+  <label class="fl">名称（留空恢复默认名）</label>
+  <input id="nameInput" class="name-input" placeholder="给这只猫猫糕起个名字" />
+
+  <label class="fl">台词（第 4、5 句可留空）</label>
+  <div id="lines"></div>
+
+  <div class="row">
+    <button id="saveBtn">保存</button>
+    <button id="resetBtn" class="secondary">恢复默认</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script src="phrases.js"></script>
+  <script src="names.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+    let ids = []; // 数据驱动：从 skinparams.json 推导猫清单（含后续新增猫），失败回退 29 只
+    let phrasesCfg = {};   // 全量自定义台词 { cake01: [...], ... }
+    let namesCfg = {};     // 全量自定义名称 { cake01: '...', ... }
+    let current = 'cake01';
+
+    async function loadIds() {
+      try {
+        const r = await fetch('cake://models/skinparams.json');
+        const sp = await r.json();
+        return Object.keys(sp).filter((k) => /^cake\d+$/.test(k)).sort();
+      } catch (e) {
+        console.warn('[phrases] skinparams.json 加载失败，回退 29 只', e);
+        return Array.from({ length: 29 }, (_, i) => 'cake' + String(i + 1).padStart(2, '0'));
+      }
+    }
+
+    function renderOptions() {
+      const sel = $('cakeSel');
+      sel.innerHTML = '';
+      for (const id of ids) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = window.getCakeName(id, namesCfg) + '（#' + id.replace('cake', '') + '）';
+        sel.appendChild(opt);
+      }
+      sel.value = current;
+    }
+
+    function defaultsFor(id) {
+      const d = window.PET_PHRASES[id];
+      return (d && d.length) ? d : window.PET_PHRASES._default;
+    }
+
+    function render() {
+      $('preview').src = `cakes/${current}.webp`;
+      renderOptions();
+      // 名称输入框：显示自定义名或默认名
+      $('nameInput').value = namesCfg[current] || window.PET_NAMES[current] || '';
+      // 台词输入框：自定义优先，否则预填默认台词方便改写
+      const box = $('lines');
+      box.innerHTML = '';
+      const custom = phrasesCfg[current];
+      const lines = (custom && custom.length) ? custom : defaultsFor(current);
+      for (let i = 0; i < 5; i++) {
+        const input = document.createElement('input');
+        input.className = 'line';
+        input.placeholder = `第 ${i + 1} 句${i < 3 ? '' : '（可留空）'}`;
+        input.value = lines[i] || '';
+        box.appendChild(input);
+      }
+    }
+
+    $('cakeSel').onchange = () => { current = $('cakeSel').value; render(); };
+
+    function collectLines() {
+      return [...document.querySelectorAll('input.line')]
+        .map((i) => i.value.trim())
+        .filter((s) => s.length > 0);
+    }
+
+    $('saveBtn').onclick = async () => {
+      const lines = collectLines();
+      if (lines.length === 0) { status('❌ 至少写一句，或点「恢复默认」'); return; }
+      if (lines.length < 3) { status('⚠️ 建议写满 3 句，已照常保存'); }
+      phrasesCfg[current] = lines;
+      const name = $('nameInput').value.trim();
+      if (name) namesCfg[current] = name; else delete namesCfg[current];
+      await window.api.setConfig({ phrases: phrasesCfg, names: namesCfg });
+      renderOptions();
+      status(`✅ 已保存「${window.getCakeName(current, namesCfg)}」的名称和 ${lines.length} 句台词`);
+    };
+
+    $('resetBtn').onclick = async () => {
+      delete phrasesCfg[current];
+      delete namesCfg[current];
+      await window.api.setConfig({ phrases: phrasesCfg, names: namesCfg });
+      render();
+      status('✅ 已恢复默认名称和台词');
+    };
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      phrasesCfg = cfg.phrases || {};
+      namesCfg = cfg.names || {};
+      current = cfg.cake || 'cake01';
+      ids = await loadIds();
+      render();
+    })();
+  </script>
+</body>
+</html>

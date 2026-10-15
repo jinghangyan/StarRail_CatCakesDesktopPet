@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 20px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    p.tip { font-size: 12px; color: #999; margin: 0 0 12px; }
+    .opt {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin: 6px 0;
+      background: #fff; border: 2px solid transparent;
+      border-radius: 10px; cursor: pointer;
+    }
+    .opt.selected { border-color: #ff8fa3; }
+    .opt input { accent-color: #ff8fa3; }
+    .opt .play {
+      margin-left: auto;
+      border: 1px solid #ddd; background: #fff;
+      border-radius: 6px; padding: 2px 10px;
+      cursor: pointer; font-size: 12px;
+    }
+    .opt .play:hover { background: #f0f0f0; }
+    .custom-file { font-size: 12px; color: #888; }
+    #status { margin-top: 10px; font-size: 12px; color: #888; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <h2>🔊 叫声设置</h2>
+  <p class="tip">点击猫猫糕时播放，也可以导入自己的音频</p>
+
+  <div id="presets"></div>
+
+  <div class="opt" id="customOpt">
+    <input type="radio" name="meow" id="customRadio" />
+    <label for="customRadio">自定义叫声</label>
+    <span class="custom-file" id="customFile">（未导入）</span>
+    <button class="play" id="importBtn">导入…</button>
+    <button class="play" id="playCustom" style="display:none">试听</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+    let meow = 'preset1';
+    let customMeowFile = null;
+    let userData = '';
+
+    function presetSrc(n) { return `meows/meow${n}.m4a`; }
+    function customSrc() {
+      return 'meow://' + encodeURIComponent(customMeowFile);
+    }
+    function play(src) {
+      const a = new Audio(src);
+      a.play().catch(() => status('❌ 音频文件无法播放'));
+    }
+
+    function render() {
+      const box = $('presets');
+      box.innerHTML = '';
+      for (let n = 1; n <= 7; n++) {
+        const id = 'preset' + n;
+        const div = document.createElement('div');
+        div.className = 'opt' + (meow === id ? ' selected' : '');
+        div.innerHTML = `
+          <input type="radio" name="meow" ${meow === id ? 'checked' : ''} />
+          <label>预设叫声 ${n}</label>
+          <button class="play" data-n="${n}">试听</button>`;
+        div.onclick = async (e) => {
+          if (e.target.classList.contains('play')) {
+            play(presetSrc(Number(e.target.dataset.n)));
+            return;
+          }
+          meow = id;
+          await window.api.setPrefs({ meow: id });
+          render();
+        };
+        box.appendChild(div);
+      }
+      $('customRadio').checked = meow === 'custom';
+      $('customOpt').className = 'opt' + (meow === 'custom' ? ' selected' : '');
+      $('customFile').textContent = customMeowFile || '（未导入）';
+      $('playCustom').style.display = customMeowFile ? '' : 'none';
+    }
+
+    $('customOpt').onclick = async (e) => {
+      if (e.target.id === 'importBtn' || e.target.id === 'playCustom') return;
+      if (!customMeowFile) { status('先点「导入…」选择音频文件'); return; }
+      meow = 'custom';
+      await window.api.setPrefs({ meow: 'custom' });
+      render();
+    };
+
+    $('importBtn').onclick = async () => {
+      const name = await window.api.pickMeowFile();
+      if (name) {
+        customMeowFile = name;
+        meow = 'custom';
+        render();
+        status('✅ 已导入并启用自定义叫声');
+      }
+    };
+
+    $('playCustom').onclick = () => play(customSrc());
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      meow = cfg.meow || 'preset1';
+      customMeowFile = cfg.customMeowFile || null;
+      userData = cfg._userData || '';
+      render();
+    })();
+  </script>
+</body>
+</html>

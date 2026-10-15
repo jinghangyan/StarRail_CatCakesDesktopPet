@@ -1,0 +1,22 @@
+{
+  "name": "cat-pet-desktop",
+  "version": "3.0.0",
+  "description": "桌宠猫猫糕 - 29 只猫猫糕住在你桌面，手机 App 可远程互动",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.catpet.desktop",
+    "productName": "桌宠猫猫糕",
+    "mac": { "category": "public.app-category.lifestyle" },
+    "win": { "target": "nsis" },
+    "files": ["main.js", "preload.js", "renderer/**/*"]
+  }
+}

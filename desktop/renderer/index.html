@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body {
+      margin: 0;
+      background: transparent;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    /* 240x250 基准容器：整体 scale 缩放，内部所有元素相对位置永不分离 */
+    #app {
+      position: fixed;
+      left: 0; top: 0; /* 异形窗口：窗口移动后由 JS 反向平移，保持模型屏幕位置不动 */
+      width: 240px; height: 250px;
+      transform-origin: 0 0;
+    }
+    #drag {
+      position: fixed;
+      inset: 0;
+      cursor: grab;
+    }
+    #drag:active { cursor: grabbing; }
+
+    #stage {
+      position: fixed;
+      left: 0; bottom: 0;
+      width: 240px; height: 250px;
+    }
+    /* 流动轮廓光：锥形渐变 + 图片剪影蒙版，与本体共用同一套变换，光始终贴着边缘 */
+    @property --ga {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    #edgeGlow {
+      position: absolute;
+      /* 比本体大一圈（226 vs 210），光才能超出剪影边缘；与本体同心 */
+      left: 7px; bottom: 2px;
+      width: 226px; height: 226px;
+      background: conic-gradient(from var(--ga),
+        #ffd54f, #ff8fa3, #80deea, #b39dff, #ffd54f);
+      -webkit-mask-image: var(--cake-img);
+      -webkit-mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      mask-image: var(--cake-img);
+      mask-size: contain;
+      mask-repeat: no-repeat;
+      mask-position: center;
+      filter: blur(4px) brightness(1.5) saturate(1.4);
+      opacity: 0;
+      transition: opacity .3s;
+      transform-origin: 50% 100%;
+      animation: flowGlow 2.2s linear infinite, float 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    #edgeGlow.on { opacity: 1; }
+    @keyframes flowGlow {
+      to { --ga: 360deg; }
+    }
+
+    #cake {
+      position: absolute;
+      left: 15px; bottom: 10px;
+      width: 210px;
+      height: 210px;
+      object-fit: contain;
+      animation: float 3.2s ease-in-out infinite;
+      transform-origin: 50% 100%;
+      pointer-events: none;
+    }
+    /* 地面投影：跟随浮动节奏缩放 */
+    #shadow {
+      position: absolute;
+      left: 50%; bottom: 4px;
+      width: 120px; height: 20px;
+      margin-left: -60px;
+      background: rgba(0, 0, 0, .22);
+      border-radius: 50%;
+      filter: blur(5px);
+      animation: shadowFloat 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1, 1); }
+      50% { transform: translateY(-7px) scale(1, 1); }
+    }
+    @keyframes shadowFloat {
+      0%, 100% { transform: scale(1); opacity: .9; }
+      50% { transform: scale(.9); opacity: .7; }
+    }
+
+    /* ===== 随机动作（挂在 #stage 上，本体、轮廓光、影子同步驱动） ===== */
+
+    /* 1：果冻 Q 弹 duang */
+    #stage.act-duang #cake,
+    #stage.act-duang #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, duang .65s ease-out;
+    }
+    @keyframes duang {
+      0%   { transform: scale(1, 1); }
+      25%  { transform: scale(1.22, 0.78); }
+      45%  { transform: scale(0.88, 1.14); }
+      62%  { transform: scale(1.08, 0.93); }
+      78%  { transform: scale(0.97, 1.03); }
+      100% { transform: scale(1, 1); }
+    }
+
+    /* 2：扭动身子 */
+    #stage.act-wiggle #cake,
+    #stage.act-wiggle #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, wiggle .7s ease-in-out;
+    }
+    @keyframes wiggle {
+      0%   { transform: rotate(0deg) scale(1, 1); }
+      20%  { transform: rotate(-9deg) scale(1.05, 0.95); }
+      40%  { transform: rotate(8deg) scale(0.96, 1.04); }
+      60%  { transform: rotate(-6deg) scale(1.03, 0.97); }
+      80%  { transform: rotate(3deg) scale(1, 1); }
+      100% { transform: rotate(0deg) scale(1, 1); }
+    }
+
+    /* 3：跳起来空中转一圈再落地（转时缩小，保证全程可见且有远近感） */
+    #stage.act-spin #cake,
+    #stage.act-spin #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, spin .95s ease-in-out;
+    }
+    @keyframes spin {
+      0%   { transform: translateY(0) rotate(0deg) scale(1, 1); }
+      15%  { transform: translateY(3px) rotate(0deg) scale(1.15, 0.85); }   /* 蓄力下压 */
+      35%  { transform: translateY(-34px) rotate(170deg) scale(.8, .8); }  /* 腾空转半圈 */
+      55%  { transform: translateY(-34px) rotate(360deg) scale(.8, .8); }  /* 转满一圈 */
+      75%  { transform: translateY(1px) rotate(360deg) scale(1.1, 0.9); }  /* 落地压缩 */
+      100% { transform: translateY(0) rotate(360deg) scale(1, 1); }
+    }
+    #stage.act-spin #shadow {
+      animation: shadowFloat 3.2s ease-in-out infinite, shadowSpin .95s ease-in-out;
+    }
+    @keyframes shadowSpin {
+      0%, 15% { transform: scale(1); opacity: .9; }
+      35%, 55% { transform: scale(.55); opacity: .45; }  /* 腾空时影子缩小变淡 */
+      75%, 100% { transform: scale(1); opacity: .9; }
+    }
+
+    /* 4：开心跳一下 */
+    #stage.act-hop #cake,
+    #stage.act-hop #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, hop .6s ease-out;
+    }
+    @keyframes hop {
+      0%   { transform: translateY(0) scale(1, 1); }
+      25%  { transform: translateY(4px) scale(1.15, 0.85); }
+      55%  { transform: translateY(-26px) scale(0.92, 1.08); }
+      80%  { transform: translateY(2px) scale(1.06, 0.94); }
+      100% { transform: translateY(0) scale(1, 1); }
+    }
+    #stage.act-hop #shadow {
+      animation: shadowFloat 3.2s ease-in-out infinite, shadowHop .6s ease-out;
+    }
+    @keyframes shadowHop {
+      0%, 25% { transform: scale(1); opacity: .9; }
+      55% { transform: scale(.7); opacity: .55; }
+      80%, 100% { transform: scale(1); opacity: .9; }
+    }
+
+    /* 5：疑惑歪头 */
+    #stage.act-tilt #cake,
+    #stage.act-tilt #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, tilt 1s ease-in-out;
+    }
+    @keyframes tilt {
+      0%   { transform: rotate(0deg); }
+      30%  { transform: rotate(-14deg); }
+      65%  { transform: rotate(-14deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    /* ===== 待机动作（轻柔舒缓，与点击动作分开） ===== */
+
+    /* 待机 1：伸懒腰——慢慢拉长身体再放松 */
+    #stage.idle-stretch #cake,
+    #stage.idle-stretch #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, idleStretch 2.4s ease-in-out;
+    }
+    @keyframes idleStretch {
+      0%   { transform: scale(1, 1); }
+      30%  { transform: scale(0.96, 1.09); }
+      55%  { transform: scale(0.96, 1.09); }
+      100% { transform: scale(1, 1); }
+    }
+
+    /* 待机 2：轻轻摇晃 */
+    #stage.idle-sway #cake,
+    #stage.idle-sway #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, idleSway 2.8s ease-in-out;
+    }
+    @keyframes idleSway {
+      0%   { transform: rotate(0deg); }
+      25%  { transform: rotate(2.5deg); }
+      75%  { transform: rotate(-2.5deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    /* 待机 3：左右看看 */
+    #stage.idle-look #cake,
+    #stage.idle-look #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, idleLook 2.6s ease-in-out;
+    }
+    @keyframes idleLook {
+      0%   { transform: translateX(0) rotate(0deg); }
+      25%  { transform: translateX(-5px) rotate(-3deg); }
+      50%  { transform: translateX(-5px) rotate(-3deg); }
+      75%  { transform: translateX(5px) rotate(3deg); }
+      100% { transform: translateX(0) rotate(0deg); }
+    }
+
+    /* 待机 4：蜷缩打盹——缩成一团再舒展 */
+    #stage.idle-curl #cake,
+    #stage.idle-curl #edgeGlow {
+      animation: float 3.2s ease-in-out infinite, idleCurl 2.8s ease-in-out;
+    }
+    @keyframes idleCurl {
+      0%   { transform: scale(1, 1); }
+      35%  { transform: scale(0.94, 0.9); }
+      65%  { transform: scale(0.94, 0.9); }
+      100% { transform: scale(1, 1); }
+    }
+
+    /* 文字气泡 */
+    #bubble {
+      position: fixed;
+      left: 50%;
+      top: 6px;
+      transform: translateX(-50%);
+      max-width: 200px;
+      padding: 8px 12px;
+      background: #fff;
+      color: #333;
+      border-radius: 12px;
+      font: 13px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+      word-break: break-all;
+      z-index: 10;
+    }
+    #bubble.show { opacity: 1; }
+    #bubble::after {
+      content: '';
+      position: absolute;
+      left: 50%; bottom: -6px;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #fff;
+      border-bottom: none;
+    }
+
+    /* 未配置时的提示（顶部，带关闭叉） */
+    #hint {
+      position: fixed;
+      left: 50%; top: 8px;
+      transform: translateX(-50%);
+      font: 11px -apple-system, "PingFang SC", sans-serif;
+      color: rgba(255,255,255,.9);
+      background: rgba(0,0,0,.45);
+      padding: 4px 8px 4px 10px;
+      border-radius: 10px;
+      display: none;
+      white-space: nowrap;
+      z-index: 10;
+      align-items: center;
+      gap: 6px;
+    }
+    #hintClose {
+      cursor: pointer;
+      opacity: .7;
+      padding: 0 2px;
+      font-size: 12px;
+    }
+    #hintClose:hover { opacity: 1; }
+
+    /* 右下角拉伸手柄（像 Word 里拖图片角一样调大小） */
+    #resizer {
+      position: fixed;
+      right: 0; bottom: 0;
+      width: 22px; height: 22px;
+      cursor: nwse-resize;
+      z-index: 20;
+      display: none; /* 默认隐藏，右键菜单开启「调整大小」才出现，防误点 */
+      opacity: .35;
+      background:
+        linear-gradient(135deg, transparent 55%, rgba(0,0,0,.5) 55%, rgba(0,0,0,.5) 62%, transparent 62%, transparent 72%, rgba(0,0,0,.5) 72%, rgba(0,0,0,.5) 79%, transparent 79%);
+    }
+    #resizer:hover { opacity: .8; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="drag"></div>
+    <div id="stage">
+      <div id="shadow"></div>
+      <div id="edgeGlow"></div>
+      <img id="cake" src="cakes/cake01.webp" draggable="false" />
+    </div>
+    <div id="bubble"></div>
+    <div id="hint"><span id="hintText"></span><span id="hintClose" title="不再提示">✕</span></div>
+    <div id="resizer" title="拖动调整大小"></div>
+  </div>
+
+  <!-- supabase-js 走 async：jsdelivr 被墙/代理拦截挂起时不会卡住后面的模块初始化（宠物本体永远先起来）；
+       supabase-client.js 连接时自检 window.supabase 是否存在，异步加载安全 -->
+  <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+  <script type="module" src="pet3d.js"></script>
+  <script src="diag.js"></script>
+  <script src="phrases.js"></script>
+  <script src="cake.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="interact.js"></script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #333;
+      background: linear-gradient(160deg, #ffeef3 0%, #fff8ec 55%, #eef6ff 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 24px;
+    }
+    .icon {
+      width: 88px; height: 88px;
+      border-radius: 22px;
+      background: #fff;
+      padding: 8px;
+      box-shadow: 0 6px 20px rgba(255, 143, 163, .3);
+      animation: bob 3s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    h1 {
+      font-size: 20px;
+      margin: 14px 0 2px;
+      background: linear-gradient(90deg, #ff5c8a, #ff9e3d);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .version { font-size: 12px; color: #aaa; margin-bottom: 20px; }
+
+    .card {
+      width: 100%;
+      background: rgba(255, 255, 255, .85);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+    }
+    .card .label {
+      font-size: 11px;
+      color: #ff8fa3;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    .author {
+      font-size: 17px;
+      font-weight: 600;
+    }
+    .link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      border-radius: 9px;
+      background: #f7f7fb;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+      font-size: 13px;
+      color: #555;
+      word-break: break-all;
+    }
+    .link:hover { background: #ffeef3; transform: translateX(3px); }
+    .link .tag {
+      flex-shrink: 0;
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 6px;
+      color: #fff;
+    }
+    .tag.bili { background: #00a1d6; }
+    .tag.gh { background: #333; }
+    .tag.qq { background: #12b7f5; }
+    .copied {
+      font-size: 11px;
+      color: #ff8fa3;
+      margin-left: auto;
+      display: none;
+    }
+    .thanks {
+      font-size: 14px;
+      color: #666;
+    }
+    .thanks b { color: #ff5c8a; }
+    .footer {
+      margin-top: auto;
+      font-size: 11px;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+  <img class="icon" src="assets/trayIcon-source.png" />
+  <h1>桌宠猫猫糕</h1>
+  <div class="version">v3.0.0</div>
+
+  <div class="card">
+    <div class="label">作者</div>
+    <div class="author">@渊源远愿</div>
+    <div class="link" data-url="https://space.bilibili.com/291097096">
+      <span class="tag bili">bilibili</span>
+      space.bilibili.com/291097096
+    </div>
+    <div class="link" data-url="https://github.com/jinghangyan/StarRail_CatCakesDesktopPet">
+      <span class="tag gh">GitHub</span>
+      StarRail_CatCakesDesktopPet
+    </div>
+    <div class="link" id="qqGroup">
+      <span class="tag qq">QQ群</span>
+      537022910
+      <span class="copied" id="copied">已复制 ✓</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">特别鸣谢</div>
+    <div class="thanks"><b>@黎昼</b>　<b>@Ricer_Chung</b>　<b>@素素素嘻🌱</b>　<b>@Kimi</b></div>
+  </div>
+
+  <div class="footer">愿此行，终抵群星喵 ⭐</div>
+
+  <script>
+    document.querySelectorAll('.link[data-url]').forEach((el) => {
+      el.onclick = () => window.api.openExternal(el.dataset.url);
+    });
+    // QQ 群号点击复制
+    document.getElementById('qqGroup').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText('537022910');
+        const tip = document.getElementById('copied');
+        tip.style.display = 'inline';
+        setTimeout(() => { tip.style.display = 'none'; }, 1500);
+      } catch { /* 剪贴板不可用时忽略 */ }
+    };
+  </script>
+</body>
+</html>

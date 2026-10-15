@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 16px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .cell {
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 6px;
+      cursor: pointer;
+      text-align: center;
+      background: #fff;
+      transition: border-color .15s, transform .15s;
+    }
+    .cell:hover { transform: scale(1.05); }
+    .cell.selected { border-color: #ff8fa3; }
+    .cell img { width: 100%; display: block; }
+    .cell span { font-size: 11px; color: #888; }
+  </style>
+</head>
+<body>
+  <h2>选择你的猫猫糕 🐱</h2>
+  <div class="grid" id="grid"></div>
+
+  <script src="names.js"></script>
+  <script>
+    const grid = document.getElementById('grid');
+    let ids = []; // 数据驱动：有皮肤的猫都进图鉴（缓冲未来新增）
+    let current = 'cake01';
+
+    // 从 skinparams.json 推导猫清单（cake:// 协议 fetch；失败回退硬编码 29 只）
+    async function loadIds() {
+      try {
+        const r = await fetch('cake://models/skinparams.json');
+        const sp = await r.json();
+        return Object.keys(sp).filter((k) => /^cake\d+$/.test(k)).sort();
+      } catch (e) {
+        console.warn('[picker] skinparams.json 加载失败，回退 29 只', e);
+        return Array.from({ length: 29 }, (_, i) => 'cake' + String(i + 1).padStart(2, '0'));
+      }
+    }
+
+    function render() {
+      grid.innerHTML = '';
+      for (const id of ids) {
+        const cell = document.createElement('div');
+        cell.className = 'cell' + (id === current ? ' selected' : '');
+        const name = window.getCakeName(id, namesCfg);
+        const img = document.createElement('img');
+        // 3D 模式用 3D 渲染缩略图，2D·立绘用官方侧视立绘，2D·正视用正面渲染图；缺失互相兜底
+        const primary = renderMode === '2d-art' ? 'cakes-art/' : renderMode === '2d' ? 'cakes/' : 'cakes3d/';
+        const fallback = renderMode === '2d' ? 'cakes3d/' : 'cakes/';
+        img.src = primary + id + '.webp';
+        img.onerror = () => { img.onerror = null; img.src = fallback + id + '.webp'; };
+        const label = document.createElement('span');
+        label.textContent = name; // 名字可自定义，用 textContent 防 XSS
+        cell.appendChild(img);
+        cell.appendChild(label);
+        cell.onclick = () => {
+          current = id;
+          window.api.selectCake(id);
+          render();
+        };
+        grid.appendChild(cell);
+      }
+    }
+
+    let namesCfg = {};
+    let renderMode = '3d';
+    window.api.getConfig().then(async (cfg) => {
+      if (cfg.cake) current = cfg.cake;
+      namesCfg = cfg.names || {};
+      if (cfg.renderMode) renderMode = cfg.renderMode;
+      ids = await loadIds();
+      render();
+    });
+  </script>
+</body>
+</html>

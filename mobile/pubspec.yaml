@@ -1,0 +1,33 @@
+name: cat_pet_mobile
+description: 桌宠猫猫糕手机版 - 29 只猫猫糕住在你手机里，还能远程戳朋友的电脑桌宠
+publish_to: 'none'
+version: 3.0.0+3
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.8.0
+  audioplayers: ^6.1.0
+  shared_preferences: ^2.3.0
+  url_launcher: ^6.3.0
+  file_picker: ^10.3.7
+  flutter_local_notifications: ^18.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/cakes/
+    - assets/meows/
+    - assets/schema.sql
+  fonts:
+    - family: AppFont
+      fonts:
+        - asset: assets/AppFont.otf

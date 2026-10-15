@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.7 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 20px 24px;
+      background: #fafafa; color: #333;
+    }
+    h2 { font-size: 17px; margin: 0 0 12px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; text-align: center;
+      padding: 10px 0; border-radius: 10px;
+      background: #eee; cursor: pointer;
+      font-size: 14px; font-weight: 600;
+      border: 2px solid transparent;
+    }
+    .tab.active { background: #ffeef3; border-color: #ff8fa3; color: #e0507a; }
+    ol { padding-left: 20px; margin: 0 0 12px; }
+    li { margin: 8px 0; }
+    .step-title { font-weight: 600; }
+    .note {
+      background: #fff8e6; border-radius: 8px;
+      padding: 8px 12px; font-size: 12px; color: #8a6d1a;
+      margin: 10px 0;
+    }
+    a.link {
+      color: #ff5c8a; cursor: pointer; text-decoration: none;
+      border-bottom: 1px dashed #ff5c8a;
+    }
+    pre {
+      background: #2b2b3a; color: #d8e0ea;
+      font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace;
+      padding: 12px; border-radius: 10px;
+      overflow: auto; max-height: 200px;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    button {
+      border: none; border-radius: 8px; cursor: pointer;
+      padding: 7px 14px; font-size: 13px;
+      background: #ff8fa3; color: #fff;
+    }
+    #copyTip { font-size: 12px; color: #4caf50; margin-left: 8px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h2>📡 联机教程</h2>
+
+  <div class="tabs">
+    <div class="tab active" id="tabJoin" onclick="show('join')">😸 我加入朋友的服务器</div>
+    <div class="tab" id="tabBuild" onclick="show('build')">🛠 我要自己建服务器</div>
+  </div>
+
+  <!-- 成员：加入别人的服务器 -->
+  <div id="pageJoin">
+    <ol>
+      <li>
+        <span class="step-title">找服主要两样东西</span><br />
+        Project URL（https://xxxx.supabase.co）和 Publishable key（sb_publishable_ 开头）。
+      </li>
+      <li>
+        <span class="step-title">填进猫猫糕</span><br />
+        右键猫猫糕 → <b>登录 / 服务器</b>，填入 URL 和 key。
+      </li>
+      <li>
+        <span class="step-title">注册账号</span><br />
+        在同一个窗口填邮箱密码点「注册」，然后告诉服主你的用户名，互相加好友就能互戳了。
+      </li>
+    </ol>
+    <div class="note">
+      💡 成员不需要注册 Supabase、不需要碰任何服务器设置，拿 URL 和 key 就能玩。
+    </div>
+  </div>
+
+  <!-- 服主：自己建服务器 -->
+  <div id="pageBuild" class="hidden">
+    <ol>
+      <li>
+        <span class="step-title">注册并创建项目</span><br />
+        打开 <a class="link" data-url="https://supabase.com">supabase.com</a>，注册账号 → New Project，
+        区域建议选 Singapore 或 Tokyo（延迟低），免费套餐即可。
+      </li>
+      <li>
+        <span class="step-title">执行建表脚本（仅这一次）</span><br />
+        项目里点左侧 <b>SQL Editor</b> → <b>New query</b>，把下方脚本<b>全部</b>粘贴进去 → <b>Run</b>。
+        <div style="margin: 6px 0;">
+          <button id="copyBtn">📋 复制建表脚本</button><span id="copyTip"></span>
+        </div>
+        <pre id="schema">加载中…</pre>
+      </li>
+      <li>
+        <span class="step-title">拿到两个密钥</span><br />
+        打开项目主页，项目名下方的 <b>Copy</b> 按钮（或顶部 <b>Connect</b> 按钮）点开，
+        里面就有 <b>Project URL</b>（https://xxxx.supabase.co）和 <b>Publishable key</b>（sb_publishable_ 开头）。
+      </li>
+      <li>
+        <span class="step-title">（可选）关闭邮箱验证</span><br />
+        左侧 <b>Authentication → Sign In / Providers</b> → 关闭 <b>Confirm email</b>，
+        朋友注册后立即可用。
+      </li>
+      <li>
+        <span class="step-title">自己登录 + 把密钥发给朋友</span><br />
+        右键猫猫糕 → <b>登录 / 服务器</b> 填入 URL 和 key 注册；
+        再把这两个值发给朋友，让他们走左边的「加入服务器」流程。
+      </li>
+    </ol>
+    <div class="note">
+      💡 URL 和 Publishable key 是公开密钥，可以放心发给朋友；
+      安全性由数据库规则（RLS）保证，建表脚本里已经配好了。
+    </div>
+  </div>
+
+  <script>
+    function show(which) {
+      document.getElementById('pageJoin').className = which === 'join' ? '' : 'hidden';
+      document.getElementById('pageBuild').className = which === 'build' ? '' : 'hidden';
+      document.getElementById('tabJoin').className = 'tab' + (which === 'join' ? ' active' : '');
+      document.getElementById('tabBuild').className = 'tab' + (which === 'build' ? ' active' : '');
+    }
+
+    document.querySelectorAll('a.link').forEach((el) => {
+      el.onclick = () => window.api.openExternal(el.dataset.url);
+    });
+
+    let schemaText = '';
+    // file:// 下 fetch 本地文件会被拦截，改走主进程 IPC 读盘
+    window.api.getSchema().then((t) => {
+      schemaText = t;
+      document.getElementById('schema').textContent = t;
+    }).catch(() => {
+      document.getElementById('schema').textContent = '（脚本加载失败）';
+    });
+
+    document.getElementById('copyBtn').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(schemaText);
+        const tip = document.getElementById('copyTip');
+        tip.textContent = '已复制 ✓ 去 Supabase SQL Editor 粘贴执行';
+        setTimeout(() => { tip.textContent = ''; }, 2500);
+      } catch {
+        document.getElementById('copyTip').textContent = '复制失败，请手动全选复制';
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>猫猫糕提取工具</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">🍰</div>
+    <div>
+      <h1>猫猫糕提取工具</h1>
+      <p class="sub">从崩铁本地文件里把 27 只猫猫糕带回家</p>
+    </div>
+  </header>
+
+  <div id="crash-banner" class="banner warn hidden">
+    😿 检测到上次异常退出（程序可能崩溃了）。麻烦点右边按钮导出诊断包发回给作者：
+    <button id="btn-crash-diag" class="btn">🩺 导出诊断包</button>
+  </div>
+
+  <!-- 卡片 1：目录选择 -->
+  <section class="card" id="card-dir">
+    <h2><span class="badge">1</span> 选择游戏目录</h2>
+    <p class="hint">
+      请选择崩铁资产目录，形如 <code>...\StarRail_Data\StreamingAssets\Asb\Windows</code>。<br />
+      选了上层的游戏根目录或 <code>StarRail_Data</code> 也没关系，会自动往下找。
+    </p>
+    <div class="row">
+      <button id="btn-choose" class="btn primary">📁 选择游戏目录</button>
+      <button id="btn-autofind" class="btn">🔍 自动寻找</button>
+    </div>
+    <div id="dir-result" class="result hidden"></div>
+  </section>
+
+  <!-- 卡片 2：环境预检 -->
+  <section class="card" id="card-precheck">
+    <h2><span class="badge">2</span> 环境预检</h2>
+    <ul class="checklist">
+      <li id="chk-dotnet"><span class="icon">⏳</span><span class="label">.NET 9 运行时</span><span class="detail"></span></li>
+      <li id="chk-disk"><span class="icon">⏳</span><span class="label">磁盘剩余空间 ≥ 20GB</span><span class="detail"></span></li>
+      <li id="chk-tools"><span class="icon">⏳</span><span class="label">内嵌工具完整性</span><span class="detail"></span></li>
+    </ul>
+    <div id="dotnet-fix" class="row hidden">
+      <button id="btn-winget" class="btn primary">一键安装（winget）</button>
+      <button id="btn-dotnet-page" class="btn">手动下载</button>
+    </div>
+  </section>
+
+  <!-- 卡片 3：开始提取 -->
+  <section class="card" id="card-run">
+    <h2><span class="badge">3</span> 开始提取</h2>
+    <div id="resume-banner" class="banner hidden">♻️ 检测到上次进度，将继续： <span id="resume-items"></span></div>
+
+    <details class="advanced">
+      <summary>⚙️ 高级：自定义筛选规则（一般不用动）</summary>
+      <p class="hint">每行一个正则表达式，默认 <code>ruanmadecake</code>（猫糕官方内部命名）。注意别把烧麦 <code>RuanMadeShaoMai</code> 加进来。只有命中偏少时才需要照 candidates.txt 补充。</p>
+      <textarea id="filters" rows="3" spellcheck="false" placeholder="ruanmadecake"></textarea>
+    </details>
+
+    <button id="btn-start" class="btn big" disabled>🚀 开始提取</button>
+
+    <ol class="steps" id="steps">
+      <li data-step="0"><span class="s-icon"></span>建索引</li>
+      <li data-step="1"><span class="s-icon"></span>筛选侦查</li>
+      <li data-step="2"><span class="s-icon"></span>导出模型</li>
+      <li data-step="3"><span class="s-icon"></span>转换 GLB</li>
+      <li data-step="4"><span class="s-icon"></span>打包 zip</li>
+    </ol>
+
+    <div class="progress-wrap hidden" id="progress-wrap">
+      <div class="progress"><div class="bar" id="progress-bar"></div></div>
+      <div class="progress-text" id="progress-text"></div>
+    </div>
+
+    <div id="recon-warning" class="banner warn hidden">
+      ⚠️ 只命中 <span id="recon-count"></span> 条（正常应有几百条）——命中 0 条或很少说明筛选规则不对。
+      <div class="row">
+        <button id="btn-recon-continue" class="btn">仍然继续</button>
+        <button id="btn-recon-diag" class="btn">导出诊断包</button>
+      </div>
+    </div>
+
+    <div class="banner warn">🛡️ 如果杀毒软件报警，请选择「允许」——解包工具经常被误报。</div>
+
+    <div class="row">
+      <button id="btn-cancel" class="btn danger hidden">✖ 取消</button>
+    </div>
+
+    <div class="logbox" id="logbox"></div>
+  </section>
+
+  <!-- 卡片 4：完成 -->
+  <section class="card hidden" id="card-done">
+    <h2 id="done-title"><span class="badge">4</span> 完成</h2>
+    <div id="done-body"></div>
+    <div class="row">
+      <button id="btn-open-output" class="btn primary">📂 打开输出文件夹</button>
+      <button id="btn-copy-diag" class="btn">📋 复制诊断信息</button>
+      <button id="btn-export-diag" class="btn">🩺 导出诊断包</button>
+    </div>
+  </section>
+
+  <footer>模型仅供同人桌宠项目内部使用，请勿公开传播 💗</footer>
+  <script src="renderer.js"></script>
+</body>
+</html>

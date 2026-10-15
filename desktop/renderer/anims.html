@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      margin: 0; padding: 20px;
+      background: #fafafa; color: #333;
+    }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    p.tip { font-size: 12px; color: #999; margin: 0 0 12px; }
+    .cols { display: flex; gap: 14px; }
+    .col { flex: 1; min-width: 0; }
+    .col h3 { margin: 4px 0 8px; font-size: 14px; color: #ff8fa3; }
+    .row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin: 6px 0;
+      background: #fff; border: 2px solid transparent;
+      border-radius: 10px;
+    }
+    .row.off { opacity: .55; }
+    .row .name { font-size: 13px; }
+    .row .desc { font-size: 11px; color: #aaa; margin-left: 2px; }
+    .row .tag {
+      font-size: 10px; color: #b39dff; border: 1px solid #e3d9ff;
+      border-radius: 4px; padding: 0 4px; margin-left: 2px;
+    }
+    .row .play {
+      margin-left: auto; flex: none;
+      border: 1px solid #ddd; background: #fff;
+      border-radius: 6px; padding: 2px 10px;
+      cursor: pointer; font-size: 12px;
+    }
+    .row .play:hover { background: #f0f0f0; }
+    /* 小开关 */
+    .sw { position: relative; flex: none; width: 34px; height: 20px; cursor: pointer; }
+    .sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+    .sw i {
+      position: absolute; inset: 0; border-radius: 10px;
+      background: #ddd; transition: background .15s; pointer-events: none;
+    }
+    .sw i::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; transition: left .15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .sw input:checked + i { background: #ff8fa3; }
+    .sw input:checked + i::after { left: 16px; }
+    #status { margin-top: 10px; font-size: 12px; color: #888; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <h2>🎬 动作设置</h2>
+  <p class="tip">开关决定随机池里有哪些动作，点「预览」立即让猫猫糕做一次</p>
+
+  <div class="cols">
+    <div class="col"><h3>👉 点击动作</h3><div id="clickPool"></div></div>
+    <div class="col"><h3>💤 待机动作</h3><div id="idlePool"></div></div>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; };
+
+    // 动作名册：id 与 cake.js / pet3d.js 的动作名一致
+    const CLICK_ACTIONS = [
+      { id: 'act-duang', name: '果冻 Q 弹', desc: 'duang~' },
+      { id: 'act-wiggle', name: '吼一嗓子', desc: '官方三连吼' },
+      { id: 'act-spin', name: '空中转圈', desc: '跳起来转一圈' },
+      { id: 'act-hop', name: '跳一跳', desc: '开心跳一下' },
+      { id: 'act-tilt', name: '歪头说话', desc: '官方说话动作' },
+    ];
+    const IDLE_ACTIONS = [
+      { id: 'idle-stretch', name: '伸懒腰', desc: '' },
+      { id: 'idle-sway', name: '轻轻摇晃', desc: '' },
+      { id: 'idle-look', name: '左右看看', desc: '' },
+      { id: 'idle-curl', name: '打盹', desc: '闭上眼睛' },
+    ];
+
+    let enabled = new Set();
+
+    function renderGroup(boxId, defs) {
+      const box = $(boxId);
+      box.innerHTML = '';
+      for (const a of defs) {
+        const on = enabled.has(a.id);
+        const row = document.createElement('div');
+        row.className = 'row' + (on ? '' : ' off');
+        row.innerHTML = `
+          <span class="sw"><input type="checkbox" ${on ? 'checked' : ''} /><i></i></span>
+          <span class="name">${a.name}</span>
+          ${a.tag ? `<span class="tag">${a.tag}</span>` : ''}
+          ${a.desc ? `<span class="desc">${a.desc}</span>` : ''}
+          <button class="play">预览</button>`;
+        row.querySelector('input').onchange = async (e) => {
+          if (e.target.checked) enabled.add(a.id); else enabled.delete(a.id);
+          // 空数组 = 全关（宠物端同样按全关处理，不会回全开）
+          await window.api.setPrefs({
+            enabledActions: CLICK_ACTIONS.filter((x) => enabled.has(x.id)).map((x) => x.id),
+            enabledIdles: IDLE_ACTIONS.filter((x) => enabled.has(x.id)).map((x) => x.id),
+          });
+          renderGroup(boxId, defs);
+          status('');
+        };
+        row.querySelector('.play').onclick = () => {
+          window.api.previewAnim(a.id);
+          status(`▶ 预览「${a.name}」`);
+        };
+        box.appendChild(row);
+      }
+    }
+
+    (async () => {
+      const cfg = await window.api.getConfig();
+      // 配置缺省（从未设置过）= 全开；数组以用户配置为准（空数组 = 全关）
+      const ea = Array.isArray(cfg.enabledActions) ? cfg.enabledActions : CLICK_ACTIONS.map((x) => x.id);
+      const ei = Array.isArray(cfg.enabledIdles) ? cfg.enabledIdles : IDLE_ACTIONS.map((x) => x.id);
+      enabled = new Set([...ea, ...ei]);
+      renderGroup('clickPool', CLICK_ACTIONS);
+      renderGroup('idlePool', IDLE_ACTIONS);
+    })();
+  </script>
+</body>
+</html>
