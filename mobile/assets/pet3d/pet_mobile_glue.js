@@ -17,10 +17,17 @@
     return _fetch(input, init);
   };
 
-  // ---- Flutter 通道（flutter_inappwebview）；独立浏览器预览时全部走本地兜底 ----
-  const flutter = window.flutter_inappwebview;
+  // ---- Flutter 通道；独立浏览器预览时全部走本地兜底 ----
+  // 兼容两种宿主：flutter_inappwebview（callHandler）/ webview_flutter（JavaScriptChannel → window.<name>.postMessage）
   const callFlutter = (handler, arg) => {
-    try { if (flutter) flutter.callHandler(handler, arg); } catch { /* 忽略 */ }
+    try {
+      if (window.flutter_inappwebview) {
+        window.flutter_inappwebview.callHandler(handler, arg);
+        return;
+      }
+      const ch = window[handler];
+      if (ch && ch.postMessage) ch.postMessage(arg == null ? '' : String(arg));
+    } catch { /* 忽略 */ }
   };
 
   // ---- window.api 垫片（pet3d.js 只用到这些方法；窗口控制类全部 noop）----
@@ -86,7 +93,10 @@
 
   // ---- 猫叫：Flutter 原生播放（含用户自定义叫声）；独立浏览器预览时随机预设兜底 ----
   function meow() {
-    if (flutter) { callFlutter('meow'); return; }
+    if (window.flutter_inappwebview || (window.meow && window.meow.postMessage)) {
+      callFlutter('meow');
+      return;
+    }
     try {
       new Audio('../meows/meow' + (1 + Math.floor(Math.random() * 7)) + '.m4a').play().catch(() => {});
     } catch { /* 忽略 */ }

@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 /// 3D 猫糕视图：WebView 内嵌桌面端 pet3d.js 渲染器（官方模型/动画/卡通渲染原样复用）。
+/// 用官方 webview_flutter：loadFlutterAsset 经 WebViewAssetLoader 整目录服务本地资产，
+/// 相对路径（pet3d.js / models/ / vendor/）都能解析。
 /// 通信：
-///   出（JS→Flutter）：'meow' 播猫叫、'cfg' 持久化视角
+///   出（JS→Flutter）：JavaScriptChannel 'meow' 播猫叫、'cfg' 持久化视角
 ///   入（Flutter→JS）：setCakeData 换猫/名称/台词、onPetEvent 联机反应、__applyFlutterCfg 配置
 class Pet3dView extends StatefulWidget {
   final String cakeId;
@@ -32,55 +34,49 @@ class Pet3dView extends StatefulWidget {
 }
 
 class Pet3dViewState extends State<Pet3dView> {
-  InAppWebViewController? _ctrl;
+  late final WebViewController _ctrl;
+  bool _loaded = false;
 
   /// 换猫（名称/台词跟着最新自定义走）
   void setCake(String id, String name, List<String> phrases) {
+    if (!_loaded) return;
     // phrasesJson 形参是「装 JSON 的字符串」，所以要二次编码
-    _ctrl?.evaluateJavascript(
-        source:
-            'setCakeData(${jsonEncode(id)}, ${jsonEncode(name)}, ${jsonEncode(jsonEncode(phrases))})');
+    _ctrl.runJavaScript(
+        'setCakeData(${jsonEncode(id)}, ${jsonEncode(name)}, ${jsonEncode(jsonEncode(phrases))})');
   }
 
   /// 联机事件：{'who': 名字, 'kind': 'blink'|'text', 'content': 内容}
   void petEvent(Map<String, String> e) {
-    _ctrl?.evaluateJavascript(
-        source: 'onPetEvent(${jsonEncode(jsonEncode(e))})');
+    if (!_loaded) return;
+    _ctrl.runJavaScript('onPetEvent(${jsonEncode(jsonEncode(e))})');
   }
 
   @override
-  Widget build(BuildContext context) {
-    return InAppWebView(
-      initialFile: 'assets/pet3d/pet_mobile.html',
-      initialSettings: InAppWebViewSettings(
-        transparentBackground: true,
-        disableContextMenu: true,
-        supportZoom: false,
-        useWideViewPort: false,
-        mediaPlaybackRequiresUserGesture: false,
-      ),
-      onWebViewCreated: (c) {
-        _ctrl = c;
-        c.addJavaScriptHandler(
-            handlerName: 'meow', callback: (_) => widget.onMeow());
-        c.addJavaScriptHandler(
-            handlerName: 'cfg',
-            callback: (args) {
-              if (args.isEmpty) return;
-              try {
-                final m = jsonDecode(args[0] as String) as Map;
-                widget.onViewChanged(
-                    (m['viewYaw'] as num?)?.toDouble() ?? 0,
-                    (m['viewPitch'] as num?)?.toDouble() ?? 0);
-              } catch (_) {}
-            });
-      },
-      onLoadStop: (c, url) {
-        setCake(widget.cakeId, widget.cakeName, widget.phrases);
-        c.evaluateJavascript(
-            source:
-                '__applyFlutterCfg(${jsonEncode(jsonEncode({'viewYaw': widget.viewYaw, 'viewPitch': widget.viewPitch}))})');
-      },
-    );
+  void initState() {
+    super.initState();
+    _ctrl = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
+      ..addJavaScriptChannel('meow', onMessageReceived: (_) => widget.onMeow())
+      ..addJavaScriptChannel('cfg', onMessageReceived: (msg) {
+        try {
+          final m = jsonDecode(msg.message) as Map;
+          widget.onViewChanged((m['viewYaw'] as num?)?.toDouble() ?? 0,
+              (m['viewPitch'] as num?)?.toDouble() ?? 0);
+        } catch (_) {}
+      })
+      ..setNavigationController(NavigationController(
+        onPageFinished: (_) {
+          _loaded = true;
+          // 页面就绪后注入：当前猫（名称/台词）+ 持久化的视角
+          setCake(widget.cakeId, widget.cakeName, widget.phrases);
+          _ctrl.runJavaScript(
+              '__applyFlutterCfg(${jsonEncode(jsonEncode({'viewYaw': widget.viewYaw, 'viewPitch': widget.viewPitch}))})');
+        },
+      ))
+      ..loadFlutterAsset('assets/pet3d/pet_mobile.html');
   }
+
+  @override
+  Widget build(BuildContext context) => WebViewWidget(controller: _ctrl);
 }

@@ -82,7 +82,7 @@ class _PetPageState extends State<PetPage> with TickerProviderStateMixin {
       _meow = p.getInt('meow') ?? 1;
       _scale = p.getDouble('cakeScale') ?? 1.0;
       _pos = Offset(p.getDouble('posX') ?? 80, p.getDouble('posY') ?? 200);
-      _render3d = (p.getString('renderMode') ?? '3d') == '3d';
+      _render3d = !kIsWeb && (p.getString('renderMode') ?? '3d') == '3d'; // 网页版没有 WebView，恒 2D
       _viewYaw = p.getDouble('viewYaw') ?? 0;
       _viewPitch = p.getDouble('viewPitch') ?? 0;
     });
