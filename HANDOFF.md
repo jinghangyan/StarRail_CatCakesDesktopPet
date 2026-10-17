@@ -52,11 +52,12 @@ cat-pet/
 
 ## 当前版本与状态
 
-- 版本号规则：X 大功能 / Y 小功能 / Z 修 bug；四端同号；tag 为 vX.Y.Z
-- 当前 Release：**v2.0.1**；**v3.0.0 已打包待内测（2026-09-10 晚）**：
-  - `desktop/dist/桌宠猫猫糕-3.0.0-arm64.dmg`（152MB，已注入修复安装.command+安装说明）+ `desktop/dist/桌宠猫猫糕 Setup 3.0.0.exe`（124MB nsis）
-  - 用户正在内测；**bug 反馈在新会话修**；内测通过后走 Release 上传（需用户提供新 GitHub token，README/发版说明到时再写）
-  - package.json 已升 3.0.0；**手机端已同步升 3.0.0（2026-09-24）**：cakeIds 补 cake28/29（名称走「猫猫糕 #N」回退、台词走 defaultPhrases 回退，等用户 App 内命名）、立绘用正视渲染图 webp 顶替（无侧视立绘，同桌面端回退策略）、pubspec version 3.0.0+3、描述改 29 只。台词/叫声两端已逐字核对一致无需同步
+- 版本号规则：X 大功能 / Y 小功能 / Z 修 bug；tag 为 vX.Y.Z。**例外：手机端 3D 化完成前，手机端（2D 线）单独走 2.x 编号，落地后回归同号**（README 已注明）
+- **项目根目录已迁至 ~/Projects/software/cat-pet，且已在 git 管理下**（main=源码、gh-pages=网页版、release/mobile-2.1.0=手机 2.1.0 发版分支）。推送/GitHub API 用钥匙串里存的 token（40 字符，git push 和 Releases API 均验证可用，不用再问用户要）
+- 当前 Release：**桌面端 v3.0.2**（2026-10-17）/ **手机端 v2.1.0**（2026-10-15）/ 网页版已部署 gh-pages v2.1.0
+- **手机端 3D 化进行中（预览版已编译）**：WebView（官方 webview_flutter）内嵌桌面 pet3d.js 全套渲染，2D 保留兜底；`mobile/assets/pet3d/`（pet_mobile.html + pet_mobile_glue.js + models(webp 皮肤)/vendor），同步脚本 `tools/sync-pet3d-mobile.sh`（改桌面渲染器后必跑）；预览包在 ~/Desktop/内测/桌宠猫猫糕-3D预览版.apk，**待用户实机验收，过了发手机 v3.0.0 回归同号**。PWA/iOS 网页版仍 2D
+- **GitHub Issues 监听**：cron 任务每周一 9:57 检查（水位线 /tmp/cat-pet-issue-watch.txt），只在本会话存活时有效；新会话如需继续，按 HANDOFF 这段重挂即可
+- 内测包统一在 ~/Desktop/内测/；**bug 反馈在新会话修**
 - 桌面端 3D 化已完成的部分：
   - **官方模型+皮肤**：1 个基础模型 GLB（95 节点骨架）+ 29 只皮肤（cake01~27 官方名册 + cake28/29 两只新猫待用户命名）。皮肤编号映射在 `tools/reference/skin-mapping.md`（含用户实机修正的 4 处连环错位：蓝莓罐子→23、白桃布丁→24、蝶豆花慕斯→28、藤萝饼→05）
   - **官方动画**（models/anims/ + anims.json）：StandBy 常驻待机循环、Blink 自动眨眼（emo 剪辑转换）、点击动作映射 Roar01AS/BS/Loop/Talk01（交叉淡入淡出）；资产来自管线 v6（AnimationClip int16 修复）
