@@ -1,7 +1,7 @@
 name: cat_pet_mobile
 description: 桌宠猫猫糕手机版 - 29 只猫猫糕住在你手机里，还能远程戳朋友的电脑桌宠
 publish_to: 'none'
-version: 3.0.0+3
+version: 3.0.0+30
 
 environment:
   sdk: ^3.5.0
