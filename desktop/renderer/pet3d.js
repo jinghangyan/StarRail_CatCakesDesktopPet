@@ -784,6 +784,8 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
   // 设一次后冻结——动作/旋转/待机都被静态包络覆盖，不再动窗口
   function layout() {
     if (!available || !envBox) return;
+    // 3D 的 DOM 覆盖物（气泡/提示/托柄）不随 transform scale，单独按 petSize 比例缩放
+    document.documentElement.style.setProperty('--ui-k', (petSize / 240).toFixed(3));
     const envW = envBox.x1 - envBox.x0, envH = envBox.y1 - envBox.y0;
     const w = Math.round(petSize);
     const h = Math.round(petSize * envH / envW);
@@ -1015,6 +1017,8 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
     if (moveLoopAction) { moveLoopAction.fadeOut(0.2); moveLoopAction = null; }
     // 连播/程序化动作独占中则不抢戏，否则淡回待机
     if (!chainRunning && !curAction) resumeStandby();
+    // 拖动期间压住的假 resize（OS 边距累积）统一 settle：窗口贴回包络、相机重 fit
+    if (available) { updateBuffer(); fitCamera(); layoutShadow(); layout(); }
   }
 
   // ---- 主循环：常驻浮动 + 动作叠加 + 影子 + 流光淡入淡出 ----
@@ -1235,9 +1239,13 @@ import { clone as skeletonClone } from './vendor/three/utils/SkeletonUtils.js';
 
     // 窗口尺寸变化（win:shape 落地/系统缩放/外部因素）→ 重设 buffer + 重 fit 相机；
     // 外部因素（Windows DWM 边框随焦点漂移会把内容尺寸顶偏几到几十 px）不是我们发起的，
-    // 会被 layout()/updateShape2D() 的目标守卫立即钉回目标尺寸（幂等，正常落地时不触发）
+    // 会被 layout()/updateShape2D() 的目标守卫立即钉回目标尺寸（幂等，正常落地时不触发）。
+    // 拖动进行中不响应：Win11 高缩放下反复 SetWindowPos 会让 DWM 逐次累积隐形边距
+    //（窗口静默变大），这时 fitCamera 会把猫同步放大、win:shape 重锚定会让猫跳走
+    //（「3D 拖动猫变大+位移」的病根）；dragEnd 统一 settle 一次
     window.addEventListener('resize', () => {
       if (!available) { updateShape2D(); return; }
+      if (draggingMove) return;
       updateBuffer();
       fitCamera();
       layoutShadow();

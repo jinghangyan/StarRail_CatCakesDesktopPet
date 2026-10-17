@@ -235,12 +235,12 @@
       left: 50%;
       top: 6px;
       transform: translateX(-50%);
-      max-width: 200px;
-      padding: 8px 12px;
+      max-width: calc(200px * var(--ui-k, 1));
+      padding: calc(8px * var(--ui-k, 1)) calc(12px * var(--ui-k, 1));
       background: #fff;
       color: #333;
       border-radius: 12px;
-      font: 13px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font: calc(13px * var(--ui-k, 1))/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       box-shadow: 0 2px 8px rgba(0,0,0,.25);
       opacity: 0;
       transition: opacity .25s;
@@ -264,7 +264,7 @@
       position: fixed;
       left: 50%; top: 8px;
       transform: translateX(-50%);
-      font: 11px -apple-system, "PingFang SC", sans-serif;
+      font: calc(11px * var(--ui-k, 1)) -apple-system, "PingFang SC", sans-serif;
       color: rgba(255,255,255,.9);
       background: rgba(0,0,0,.45);
       padding: 4px 8px 4px 10px;
@@ -287,7 +287,7 @@
     #resizer {
       position: fixed;
       right: 0; bottom: 0;
-      width: 22px; height: 22px;
+      width: calc(22px * var(--ui-k, 1)); height: calc(22px * var(--ui-k, 1));
       cursor: nwse-resize;
       z-index: 20;
       display: none; /* 默认隐藏，右键菜单开启「调整大小」才出现，防误点 */

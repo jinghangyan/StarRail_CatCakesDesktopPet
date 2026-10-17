@@ -477,7 +477,13 @@ ipcMain.on('win:drag-move', () => {
     area.x + area.width - dragOrigin.cw);
   const ncy = Math.min(Math.max(dragOrigin.cby + (c.y - dragOrigin.cy), area.y),
     area.y + area.height - dragOrigin.ch);
-  petWin.setPosition(Math.round(ncx - dragOrigin.fdx), Math.round(ncy - dragOrigin.fdy));
+  const sx = Math.round(ncx - dragOrigin.fdx), sy = Math.round(ncy - dragOrigin.fdy);
+  // 去重：同一位置不重复 setPosition——Win11 150% 缩放下，透明无边框窗被反复
+  // SetWindowPos 到同一 DIP 坐标，DWM 会逐次累积隐形边距，窗口静默变大
+  //（3D 拖动时「猫变大」的病根：按住不动 4 秒窗口 +152x+138）
+  if (sx === dragOrigin.lastSX && sy === dragOrigin.lastSY) return;
+  dragOrigin.lastSX = sx; dragOrigin.lastSY = sy;
+  petWin.setPosition(sx, sy);
   if (++dragLogN % 15 === 1) dlog(`[drag-move] cursor=${c.x},${c.y} -> content=${ncx},${ncy} size=${dragOrigin.cw}x${dragOrigin.ch}`);
 });
 ipcMain.on('win:drag-end', () => { dragOrigin = null; });
