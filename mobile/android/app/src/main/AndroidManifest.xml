@@ -6,6 +6,7 @@
     <application
         android:label="桌宠猫猫糕"
         android:name="${applicationName}"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

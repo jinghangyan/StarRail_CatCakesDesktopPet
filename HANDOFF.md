@@ -55,7 +55,7 @@ cat-pet/
 - 版本号规则：X 大功能 / Y 小功能 / Z 修 bug；tag 为 vX.Y.Z。**例外：手机端 3D 化完成前，手机端（2D 线）单独走 2.x 编号，落地后回归同号**（README 已注明）
 - **项目根目录已迁至 ~/Projects/software/cat-pet，且已在 git 管理下**（main=源码、gh-pages=网页版、release/mobile-2.1.0=手机 2.1.0 发版分支）。推送/GitHub API 用钥匙串里存的 token（40 字符，git push 和 Releases API 均验证可用，不用再问用户要）
 - 当前 Release：**桌面端 v3.0.2**（2026-10-17）/ **手机端 v2.1.0**（2026-10-15）/ 网页版已部署 gh-pages v2.1.0
-- **手机端 3D 化进行中（预览版已编译）**：WebView（官方 webview_flutter）内嵌桌面 pet3d.js 全套渲染，2D 保留兜底；`mobile/assets/pet3d/`（pet_mobile.html + pet_mobile_glue.js + models(webp 皮肤)/vendor），同步脚本 `tools/sync-pet3d-mobile.sh`（改桌面渲染器后必跑）；预览包在 ~/Desktop/内测/桌宠猫猫糕-3D预览版.apk，**待用户实机验收，过了发手机 v3.0.0 回归同号**。PWA/iOS 网页版仍 2D
+- **手机端 3D 化进行中（BlueStacks 模拟器验收已过，待真机复核）**：WebView（官方 webview_flutter）内嵌桌面 pet3d.js 全套渲染，2D 保留兜底；`mobile/assets/pet3d/`（pet_mobile.html + pet_mobile_glue.js + models(webp 皮肤)/vendor），同步脚本 `tools/sync-pet3d-mobile.sh`（改桌面渲染器后必跑）；预览包在 ~/Desktop/内测/桌宠猫猫糕-3D预览版.apk。**BlueStacks（Android 13, adb 开关需在模拟器设置里手动开）CDP 实测全绿**：3D 渲染观感与桌面端一致（官方卡通渲染+描边+影子）、点按动作+台词气泡、拖动旋转+视角持久化、picker 换猫即时生效、balanced 档 30fps 限帧、webview DevTools（adb forward localabstract:webview_devtools_remote_<pid>）可用。**注意：之前的预览包是坏的**（pet3d 资产没打进去，猫不显示只有影子——根因见坑 31），2026-10-20 已重打好包覆盖内测目录同名文件，群里若发过旧包需重发。PWA/iOS 网页版仍 2D；小组件（v2.1.0 原生代码未动）在 BlueStacks 桌面无法验证（定制桌面不支持），待真机/卓易通用户实测
 - **GitHub Issues 监听**：cron 任务每周一 9:57 检查（水位线 /tmp/cat-pet-issue-watch.txt），只在本会话存活时有效；新会话如需继续，按 HANDOFF 这段重挂即可
 - 内测包统一在 ~/Desktop/内测/；**bug 反馈在新会话修**
 - 桌面端 3D 化已完成的部分：
@@ -202,6 +202,8 @@ cp -R /tmp/as-win/* ~/cat-pet/tools/extract-catcakes/app/tools/animestudio/Anime
 28. **老核显（HD 3000 等）被 Chromium 拉黑走 SwiftShader 软渲染**：3D 常驻满帧渲染全靠 CPU 作画，占用直接爆炸（i7-2700K 用户实测）。兜底三件套：detectSoftGL() 探测（probe 上下文读 WEBGL_debug_renderer_info，匹配 swiftshader/llvmpipe/software/ANGLE (Google)）→ perfMode 性能模式（auto 软渲染自动落 saver：SSAA 1.0 + 限 20fps；**antialias 是 WebGL 上下文创建参数，只能 init 时按 softGL 决策，运行时改不了**）→ 「强制 GPU 渲染」实验开关（ignore-gpu-blocklist 必须 app ready 前 appendSwitch，所以改完要重启）。debugInfo().glRenderer 是远程确诊的关键证据
 29. **Flutter asset 原生侧可读**：APK 里真实路径是 `flutter_assets/` + pubspec 声明路径（如 `flutter_assets/assets/cakes/cake01.webp`），Kotlin `context.assets.open` 直接读，webview 外复用图片不用重复打包进 res
 30. **RemoteViews 小组件做不了真动画**：没有 rAF/属性动画，点击反应的极限是「帧替换」——Kotlin 侧 Matrix 缩放生成挤压/拉伸 Bitmap + Handler 链切帧；数据别走网络，读 FlutterSharedPreferences（Flutter 写入的键带 `flutter.` 前缀）
+31. **Flutter 资产目录声明在该版本不递归子目录**：pubspec `assets/pet3d/` 只打包顶层文件（models/、vendor/ 全部漏掉，APK 里只有 3 个顶层文件，3D 页因此猫不显示只剩影子）。子目录必须逐级显式声明（`- assets/pet3d/models/` 等）。验收资产类 bug 先 `unzip -l` 数文件，别看构建成功就信
+32. **Android WebView 的 file:// 按 CORS 拦 ES module**：pet3d.js 是 module，file:///android_asset 下直接不执行（window.pet3d 不存在、页面无报错框）。解法：dart:io 起回环 HTTP 服务（Pet3dServer，127.0.0.1 随机端口 + 路径白名单）喂资产；**回环 http 也会被 ERR_CLEARTEXT_NOT_PERMITTED 拦**，要 networkSecurityConfig 只对 127.0.0.1/localhost 放明文（别全局开 usesCleartextTraffic）。排障神器：AndroidWebViewController.enableDebugging(true) + `adb forward tcp:X localabstract:webview_devtools_remote_<pid>` 后 CDP 直连（该开关在 pet3d_debug_android.dart，手机 3.0.0 发布前复查是否关闭）
 
 ## GitHub 操作（用户授权的工作方式）
 

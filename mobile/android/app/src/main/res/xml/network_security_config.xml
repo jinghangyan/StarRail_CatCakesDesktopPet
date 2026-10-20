@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只允许回环地址走明文：宠物 3D 页由 dart:io 的 Pet3dServer 在 127.0.0.1 提供
+     （file:// 下 WebView 按 CORS 拦 ES module）。Supabase 等外部流量仍强制 https -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

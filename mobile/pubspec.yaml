@@ -16,6 +16,7 @@ dependencies:
   file_picker: ^10.3.7
   flutter_local_notifications: ^18.0.1
   webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.14.1 # pet3d_debug_android.dart 开 DevTools 调试用（align 主包版本）
 
 dev_dependencies:
   flutter_test:
@@ -28,6 +29,11 @@ flutter:
     - assets/cakes/
     - assets/meows/
     - assets/pet3d/
+    - assets/pet3d/models/
+    - assets/pet3d/models/anims/
+    - assets/pet3d/vendor/three/
+    - assets/pet3d/vendor/three/loaders/
+    - assets/pet3d/vendor/three/utils/
     - assets/schema.sql
   fonts:
     - family: AppFont

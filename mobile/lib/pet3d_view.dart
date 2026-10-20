@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'pet3d_debug_stub.dart'
+    if (dart.library.io) 'pet3d_debug_android.dart';
+import 'pet3d_server_stub.dart'
+    if (dart.library.io) 'pet3d_server.dart';
+
 /// 3D 猫糕视图：WebView 内嵌桌面端 pet3d.js 渲染器（官方模型/动画/卡通渲染原样复用）。
 /// 用官方 webview_flutter：loadFlutterAsset 经 WebViewAssetLoader 整目录服务本地资产，
 /// 相对路径（pet3d.js / models/ / vendor/）都能解析。
@@ -54,6 +59,7 @@ class Pet3dViewState extends State<Pet3dView> {
   @override
   void initState() {
     super.initState();
+    enableWebviewDebugging(); // Android 才生效（条件导入），内测期 adb+CDP 排障用
     _ctrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
@@ -73,8 +79,15 @@ class Pet3dViewState extends State<Pet3dView> {
           _ctrl.runJavaScript(
               '__applyFlutterCfg(${jsonEncode(jsonEncode({'viewYaw': widget.viewYaw, 'viewPitch': widget.viewPitch}))})');
         },
-      ))
-      ..loadFlutterAsset('assets/pet3d/pet_mobile.html');
+      ));
+    _start();
+  }
+
+  // file:// 下 Android WebView 按 CORS 拦 ES module（pet3d.js），改走回环 http 服务加载
+  Future<void> _start() async {
+    final port = await Pet3dServer.ensureStarted();
+    await _ctrl.loadRequest(
+        Uri.parse('http://127.0.0.1:$port/pet3d/pet_mobile.html'));
   }
 
   @override
